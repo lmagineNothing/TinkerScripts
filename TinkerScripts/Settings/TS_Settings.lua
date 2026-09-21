@@ -1,0 +1,14 @@
+TS_Settings = {}
+TS_Settings.HGWHrestock = true
+TS_Settings.HGWHmaxgoods = true
+TS_Settings.HGsetgood = false
+TS_Settings.HGgoodtype = 0
+TS_Settings.WHsetgood = false
+TS_Settings.WHgoodtype = 0
+TS_Settings.MCresup = true
+TS_Settings.MCrestock = true
+TS_Settings.NCgoods = true
+TS_Settings.NoClipState = true
+TS_Settings.NoClipWindowTop = false
+TS_Settings.LoadSettings = true
+TS_Settings.CloseBCSonUnload = true
