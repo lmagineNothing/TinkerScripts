@@ -30,8 +30,9 @@ Blips = { -- I could've just pasted BlipSprite.hpp... At least I learned to find
         GARMENT_FACTORY     = { ID = 900, Name = "Garment Factory",          Stat = "MPX_HACKER_DEN_OWNED"      },
         FIELD_HANGAR        = { ID = 903, Name = "McKenzie Field Hangar",    Stat = "MPX_MCKENZIE_HANGAR_OWNED" },
         SMOKE_SHOP          = { ID = 925, Name = "Smoke on the Water",       Stat = "MPX_SB_WEED_SHOP_OWNED"    },
-        HELITOURS           = { ID = 928, Name = "Higgins Helitours",        Stat = "MPX_SB_CAR_WASH_OWNED"     },
-        CAR_WASH_BUSINESS   = { ID = 931, Name = "Hands On Car Wash",        Stat = "MPX_SB_HELI_TOURS_OWNED"   }
+        HELITOURS           = { ID = 928, Name = "Higgins Helitours",        Stat = "MPX_SB_HELI_TOURS_OWNED"   },
+        CAR_WASH_BUSINESS   = { ID = 931, Name = "Hands On Car Wash",        Stat = "MPX_SB_CAR_WASH_OWNED"     },
+        BAIL_BONDS_OFFICE   = { ID = 893, Name = "Bail Office",              Stat = "MPX_BAIL_OFFICE_OWNED"     }
     },
     HIGHER                      = 0,
     LEVEL                       = 1,
@@ -857,7 +858,6 @@ Blips = { -- I could've just pasted BlipSprite.hpp... At least I learned to find
     AIRCRAFT_CARRIER            = 890,
     WEAPON_EMP                  = 891,
     MAUDE_ECCLES                = 892,
-    BAIL_BONDS_OFFICE           = 893,
     WEAPON_EMP_MINE             = 894,
     ZOMBIE_DISEASE              = 895,
     ZOMBIE_PROXIMITY            = 896,

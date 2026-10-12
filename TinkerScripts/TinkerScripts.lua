@@ -19,22 +19,21 @@ local function IsOnline() return NETWORK.NETWORK_IS_SESSION_STARTED() and not NE
 ---|| Submenu ||----------------------------------------------------------------------------------
 
 local TS_BUILD = "1158.16"
-local versionPtrn = memory.scan_pattern("4C 8D 0D ? ? ? ? 48 8D 5C 24 ? 48 89 D9 48 89 FA") -- from the menu
-local GameVersion = versionPtrn:add(3):rip():get_string()
+local OnlineVersion, GameVersion = util.get_game_version()
 
 if GameVersion ~= TS_BUILD then
     notify.error("TinkeScripts - WRONG GAME BUILD", string.format("TinkeScripts: %s\nCurrent Game Build: %s", TS_BUILD, GameVersion))
-    log.error(string.format("\27[2A]\r\27[18C\27[31m[EROR/LuaScript]\27[m TinkerScripts: WRONG GAME BUILD: %s | TinkeScripts: %s %s\27[B]                %s   \27[2A", GameVersion, TS_BUILD, cls, cls)) return
+    log.error(string.format("%s\r\27[18C\27[31m[ERROR/LuaScript]\27[m TinkerScripts: WRONG GAME BUILD: %s | TinkeScripts: %s %s\27[B]                %s   ", cls, GameVersion, TS_BUILD, cls, cls)) return
 end
 
 local TinkerPath = FileMgr.GetMenuRootPath()
-local TS_PATH_Blips = FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/Blips.lua") load(TS_PATH_Blips)()
-local TS_PATH_Unlocks = FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/TS_RecoveryPlus/Unlocks.lua") load(TS_PATH_Unlocks)()
-local TS_PATH_Tunables = FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/TS_RecoveryPlus/Tunables.lua") load(TS_PATH_Tunables)()
-local TS_PATH_FMCharTats = FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/HumanCanvas/FMCharTats.lua") load(TS_PATH_FMCharTats)()
-local function TS_PATH_Settings() return FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/Settings/TS_Settings.lua") end load(TS_PATH_Settings())()
-local function TS_PATH_FMCharTatCombo() return FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/HumanCanvas/Exported_TattooCombo.txt") end
-local function TS_PATH_NoCloudSave() return FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/Settings/BlockCloudSaves/NoSave.txt") end
+require("Blips")
+require("Unlocks")
+require("Tunables")
+require("FMCharTats")
+require("TS_Settings")
+local function TS_PATH_FMCharTatCombo() return FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/include/HumanCanvas/Exported_TattooCombo.txt") end
+local function TS_PATH_NoCloudSave() return FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt") end
 
 menu.set_menu_icon("\xef\x81\xae\xef\x81\xae")
 local Tinker = menu.get_submenu("TinkerScripts")
@@ -47,8 +46,7 @@ local TS_RecoveryPlus = Tinker:add_category("Recovery +")
 local TS_SettingsPlus = Tinker:add_category("Settings +")
 
 function FindNewSession()
-	ScriptFunction("shop_controller", ScriptPointer("SendToClouds", "2D 00 02 00 00 72 5D ? ? ? 72")):call("") -- CALLTHEFUNCTIONCALLTHEFUNCTIONCALLTHEFUNCTION | from the menu
-	ScriptGlobal(1575048):set_int(11)
+	network.join_session(session_types.invite_only)
 end
 
 function CurPlayerCoords()
@@ -60,7 +58,7 @@ end
 function scripts.start_new_script(ScriptName, StackSize)
 	script.run_in_callback(function()
 		if scripts.is_active(ScriptName) then
-			scripts.run_as_script(ScriptName, function() SCRIPT.TERMINATE_THIS_THREAD() end)
+			scripts.run_as_script(ScriptName, SCRIPT.TERMINATE_THIS_THREAD)
 		end
 		SCRIPT.REQUEST_SCRIPT(ScriptName)
 		script.yield(50)
@@ -73,6 +71,8 @@ end
 
 local screenX, screenY = ImGui.GetDisplaySize()
 local nomoretreeplease = util.time()
+local INT_MAX = 2147483647
+local INT_MIN = -2147483648
 
 local function CenteredText(Text, NewSeparator, FakeSeparatorText)
 	if not FakeSeparatorText then
@@ -85,6 +85,23 @@ local function CenteredText(Text, NewSeparator, FakeSeparatorText)
 		ImGui.SetCursorPosX((ImGui.GetWindowWidth() - ImGui.CalcTextSize(Text)) / 2)
 		ImGui.Text(Text)
 	end
+end
+
+local function CustomChild(title, childname, width, height, flags, func)
+	ImGui.BeginGroup()
+	ImGui.BeginChild(childname, width, height, 1 + flags)
+	if type(title) == "string" then CenteredText(title, false, true) end
+	if type(func) == "function" then func() end
+	ImGui.EndChild()
+	ImGui.EndGroup()
+end
+
+local function SetRageTooltip(tooltip)
+	script.run_in_callback(function()
+		HUD.BEGIN_TEXT_COMMAND_DISPLAY_HELP("STRING")
+		HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(tooltip)
+		HUD.END_TEXT_COMMAND_DISPLAY_HELP(0, 0, 0, 200)
+	end)
 end
 
 local function TpToBlip(KillDelPed, Blip, BEntity)
@@ -110,14 +127,14 @@ local function TpToBlip(KillDelPed, Blip, BEntity)
 			local BEntityPos = Entity(BlipH):get_position()
 			PED.SET_PED_COORDS_KEEP_VEHICLE(PLAYER.PLAYER_PED_ID(), BEntityPos.x, BEntityPos.y, BEntityPos.z + 0.5)
 		--else
-		--	notify.error("TinkerScript - Teleport to Blip", "No coordinates available!", 3000)
+		--	notify.error("TinkerScripts - Teleport to Blip", "No coordinates available!", 3000)
 		end
 	else
 		if HUD.DOES_BLIP_EXIST(BlipID) then
 			local blip_coords = HUD.GET_BLIP_INFO_ID_COORD(BlipID)
 			PED.SET_PED_COORDS_KEEP_VEHICLE(PLAYER.PLAYER_PED_ID(), blip_coords.x, blip_coords.y, blip_coords.z + 0.5)
 		--else
-		--	notify.error("TinkerScript - Teleport to Blip", "No coordinates available!", 3000)
+		--	notify.error("TinkerScripts - Teleport to Blip", "No coordinates available!", 3000)
 		end
 	end
 end
@@ -136,20 +153,20 @@ end
 ---|| Main ||------------------------------------------------------------------------------
 
 local LocationCoords = { -- some from rage.mp
-	{ LocName = "Franklin's Aunt's House",	LocDesc = "Teleport to Franklin's Aunt's House",					LocCoords = {-17.95, -1440.61, 31.10} },
-	{ LocName = "Franklin's House",			LocDesc = "Teleport to Franklin's House",							LocCoords = {7.61, 538.30, 176.03} },
-	{ LocName = "Michael's House",			LocDesc = "Teleport to Michael's House",							LocCoords = {-815.44, 178.77, 72.15} },
-	{ LocName = "Trevor's Trailer",			LocDesc = "Teleport to Trevor's Trailer",							LocCoords = {1972.90, 3816.28, 33.42} },
-	{ LocName = "Match Winner Room", 	  	LocDesc = "Teleport to Match \"WINNER\" Room", 						LocCoords = {414.4, -977.6, -100.0042} },
-	{ LocName = "Character Creation Room",	LocDesc = "Teleport to Character Creation/Selection Room",			LocCoords = {409.13, -999.44, -99.00} },
-	{ LocName = "Height Messure", 			LocDesc = "Teleport to Character Height Messure", 					LocCoords = {402.91, -996.90, -99.00} },
-	{ LocName = "Omega's Garage", 			LocDesc = "Teleport to Omega's Garage", 							LocCoords = {2331.344, 2574.073, 46.68137} },
-	{ LocName = "Lester's House", 			LocDesc = "Teleport to Lester's House", 							LocCoords = {1273.9, -1719.305, 54.77141} },
-	{ LocName = "Torture Room", 		  	LocDesc = "Teleport to Torture Room", 								LocCoords = {136.5146, -2203.149, 7.30914} },
-	{ LocName = "Split-Sides Comedy Club", 	LocDesc = "Teleport to Split-Sides Comedy Club", 					LocCoords = {382.71, -1001.45, -99.00} },
-	{ LocName = "Motel",					LocDesc = "Teleport to Motel",										LocCoords = {152.2605,-1004.471, -98.99999} },
-	{ LocName = "FIB Building",				LocDesc = "Teleport to FIB Building",								LocCoords = {134.5835,-749.339, 258.152} },
-	{ LocName = "IAA Office",				LocDesc = "Teleport to IAA Office",									LocCoords = {117.22,-620.938, 206.1398} }
+	{ LocName = "Franklin's Aunt's House",	LocDesc = "Teleport to Franklin's Aunt's House",			LocCoords = {-17.95, -1440.61, 31.10} },
+	{ LocName = "Franklin's House",			LocDesc = "Teleport to Franklin's House",					LocCoords = {7.61, 538.30, 176.03} },
+	{ LocName = "Michael's House",			LocDesc = "Teleport to Michael's House",					LocCoords = {-815.44, 178.77, 72.15} },
+	{ LocName = "Trevor's Trailer",			LocDesc = "Teleport to Trevor's Trailer",					LocCoords = {1972.90, 3816.28, 33.42} },
+	{ LocName = "Match Winner Room", 	  	LocDesc = "Teleport to Match \"WINNER\" Room", 				LocCoords = {414.4, -977.6, -100.0042} },
+	{ LocName = "Character Creation Room",	LocDesc = "Teleport to Character Creation/Selection Room",	LocCoords = {409.13, -999.44, -99.00} },
+	{ LocName = "Height Messure", 			LocDesc = "Teleport to Character Height Messure", 			LocCoords = {402.91, -996.90, -99.00} },
+	{ LocName = "Omega's Garage", 			LocDesc = "Teleport to Omega's Garage", 					LocCoords = {2331.344, 2574.073, 46.68137} },
+	{ LocName = "Lester's House", 			LocDesc = "Teleport to Lester's House", 					LocCoords = {1273.9, -1719.305, 54.77141} },
+	{ LocName = "Torture Room", 		  	LocDesc = "Teleport to Torture Room", 						LocCoords = {136.5146, -2203.149, 7.30914} },
+	{ LocName = "Split-Sides Comedy Club", 	LocDesc = "Teleport to Split-Sides Comedy Club", 			LocCoords = {382.71, -1001.45, -99.00} },
+	{ LocName = "Motel",					LocDesc = "Teleport to Motel",								LocCoords = {152.2605,-1004.471, -98.99999} },
+	{ LocName = "FIB Building",				LocDesc = "Teleport to FIB Building",						LocCoords = {134.5835,-749.339, 258.152} },
+	{ LocName = "IAA Office",				LocDesc = "Teleport to IAA Office",							LocCoords = {117.22,-620.938, 206.1398} }
 }
 
 local function FastRespawn()
@@ -220,72 +237,66 @@ local function RagdollPlayer()
 	end
 end
 
-commandmgr.add_looped_command("fastrespawn", "Fast Respawn", "Skips the WASTED screen.", function()
-	FastRespawn()
-end, function()
+commandmgr.add_looped_command("fastrespawn", "Fast Respawn", "Skips the WASTED screen.", FastRespawn, function()
 	ScriptGlobal(2709139):set_int(1)
-	notify.success("TinkerScript - Rejack", "Fast Respawn Enabled!", 3000)
+	notify.success("TinkerScripts - Rejack", "Fast Respawn Enabled!", 3000)
 end, function()
 	ScriptGlobal(2709139):set_int(0)
-	notify.info("TinkerScript - Rejack", "Fast Respawn Disabled.", 3000)
+	notify.info("TinkerScripts - Rejack", "Fast Respawn Disabled.", 3000)
 end)
 
-commandmgr.add_looped_command("fastreload", "Fast Reload", "Similar to Fast Reload macros. (FIRST PERSON ONLY)", function()
-	FastReload()
+commandmgr.add_looped_command("fastreload", "Fast Reload", "Similar to Fast Reload macros. (FIRST PERSON ONLY)", FastReload, function()
+	notify.success("TinkerScripts - Fast Reload", "Fast Reload Enabled!", 3000)
 end, function()
-	notify.success("TinkerScript - Fast Reload", "Fast Reload Enabled!", 3000)
-end, function()
-	notify.info("TinkerScript - Fast Reload", "Fast Reload Disabled.", 3000)
+	notify.info("TinkerScripts - Fast Reload", "Fast Reload Disabled.", 3000)
 end)
 
 commandmgr.add_bool_command("notm25_bst", "Bullshark Testosterone", "Enables BST", false, function()
 	GlobalSetBit(ScriptGlobal(2673276 + 3768), 1, 0)
-	notify.success("TinkerScript - BST", "BST Enabled!", 3000)
+	notify.success("TinkerScripts - BST", "BST Enabled!", 3000)
 end, function()
 	GlobalSetBit(ScriptGlobal(2673276 + 3768), 1, 2)
-	notify.info("TinkerScript - BST", "BST Disabled.", 3000)
+	notify.info("TinkerScripts - BST", "BST Disabled.", 3000)
 end)
 
 local m25_yogaRmulti = 1.15
 local m25_yogaSmulti = 2.0
 commandmgr.add_bool_command("m25_runboost", "Run/Swim Boost", "Enables Run/Swim Boost.\n*This is essentially the same as \"Super Run\" from Self submenu, but using a global (Not to be confused with \"Fast Run\" stat).", false, function()
 	GlobalSetBit(ScriptGlobal(2673276 + 3768), 1, 10)
-	notify.success("TinkerScript - Run Boost", "Run Boost Enabled!", 3000)
+	notify.success("TinkerScripts - Run Boost", "Run Boost Enabled!", 3000)
 end, function()
 	GlobalSetBit(ScriptGlobal(2673276 + 3768), 0, 10)
-	notify.info("TinkerScript - Run Boost", "Run Boost Disabled.", 3000)
+	notify.info("TinkerScripts - Run Boost", "Run Boost Disabled.", 3000)
 end)
 
 commandmgr.add_bool_command("m25_strengthboost", "Strength Boost", "Enables Strength Boost", false, function()
 	GlobalSetBit(ScriptGlobal(2673276 + 3768), 1, 6)
-	notify.success("TinkerScript - Strength Boost", "Strength Boost Enabled!", 3000)
+	notify.success("TinkerScripts - Strength Boost", "Strength Boost Enabled!", 3000)
 end, function()
 	GlobalSetBit(ScriptGlobal(2673276 + 3768), 0, 6)
-	notify.info("TinkerScript - Strength Boost", "Strength Boost Disabled.", 3000)
+	notify.info("TinkerScripts - Strength Boost", "Strength Boost Disabled.", 3000)
 end)
 
 commandmgr.add_bool_command("clearworld", "Clear World", "Remove all peds and vehicles.", false, function()
 	ClearWorld(1)
-	notify.success("TinkerScript - Clear World", "Clear World Enabled!", 3000)
+	notify.success("TinkerScripts - Clear World", "Clear World Enabled!", 3000)
 end, function()
 	ClearWorld(0)
-	notify.info("TinkerScript - Clear World", "Clear World Disabled.", 3000)
+	notify.info("TinkerScripts - Clear World", "Clear World Disabled.", 3000)
 end)
 
-commandmgr.add_looped_command("ragdoll", "Ragdoll", "Ragdoll on command by pressing [L-ALT]", function()
-	RagdollPlayer()
+commandmgr.add_looped_command("ragdoll", "Ragdoll", "Ragdoll on demand by pressing [L-ALT]", RagdollPlayer, function()
+	notify.success("TinkerScripts - Ragdoll", "Manual Ragdoll Enabled!", 3000)
 end, function()
-	notify.success("TinkerScript - Ragdoll", "Manual Ragdoll Enabled!", 3000)
-end, function()
-	notify.info("TinkerScript - Ragdoll", "Manual Ragdoll Disabled.", 3000)
+	notify.info("TinkerScripts - Ragdoll", "Manual Ragdoll Disabled.", 3000)
 end)
 
 commandmgr.add_looped_command("infcombatroll", "Infinite Combat Roll", "& No-Recoil/Spread ;)", function()
 	stats.set_int("MPX_SHOOTING_ABILITY", 500)
 end, function()
-	notify.success("TinkerScript - Infinite Combat Roll", "Infinite Combat Roll Enabled!", 3000)
+	notify.success("TinkerScripts - Infinite Combat Roll", "Infinite Combat Roll Enabled!", 3000)
 end, function()
-	notify.info("TinkerScript - Infinite Combat Roll", "Infinite Combat Roll Disabled.", 3000)
+	notify.info("TinkerScripts - Infinite Combat Roll", "Infinite Combat Roll Disabled.", 3000)
 end)
 
 commandmgr.add_looped_command("noidlecam", "Disable Idle Cam", "Disables Idle Cam.", CAMERA.INVALIDATE_IDLE_CAM)
@@ -312,11 +323,11 @@ local function SelfTaxi()
     if PED.IS_PED_SITTING_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID()) then
         local wp_blip = HUD.GET_FIRST_BLIP_INFO_ID(8)
         if not HUD.DOES_BLIP_EXIST(wp_blip) then
-           notify.info("TinkerScript - Self Taxi", "Please set a waypoint first.", 3000) return
+           notify.info("TinkerScripts - Self Taxi", "Please set a waypoint first.", 3000) return
         end
         local wp_coords = HUD.GET_BLIP_INFO_ID_COORD(wp_blip)
         TASK.TASK_VEHICLE_DRIVE_TO_COORD(PLAYER.PLAYER_PED_ID(), PlaVeh, wp_coords.x, wp_coords.y, wp_coords.z, AutoDriveSpeed, 0, 0, VehAutoDrive.Flag[VehAutoDrive.Mode + 1], 10.0, 0)
-        notify.info("TinkerScript - Self Taxi", "Auto-Drive to Waypoint has started.", 3000)
+        notify.info("TinkerScripts - Self Taxi", "Auto-Drive to Waypoint has started.", 3000)
         while true do
 			VEHICLE.SET_VEHICLE_MAX_SPEED(PlaVeh, AutoDriveSpeed)
 			CurPlayerCoords()
@@ -326,16 +337,16 @@ local function SelfTaxi()
             if dist < 70.0 then
                 TASK.CLEAR_PED_TASKS(PLAYER.PLAYER_PED_ID())
 				VEHICLE.BRING_VEHICLE_TO_HALT(PlaVeh, 3.0, 1, 0)
-                notify.success("TinkerScript - Self Taxi", "Destination reached.", 3000) return
+                notify.success("TinkerScripts - Self Taxi", "Destination reached.", 3000) return
             end
             if PAD.IS_CONTROL_JUST_PRESSED(0, 22) then -- SPACEBAR
-                notify.info("TinkerScript - Self Taxi", "Auto-Drive to Waypoint has been canceled.", 3000)
+                notify.info("TinkerScripts - Self Taxi", "Auto-Drive to Waypoint has been canceled.", 3000)
                 TASK.CLEAR_PED_TASKS(PLAYER.PLAYER_PED_ID()) return
             end
             script.yield(0)
         end
     else
-        notify.warn("TinkerScript - Self Taxi", "You are not in a vehicle.", 3000)
+        notify.warn("TinkerScripts - Self Taxi", "You are not in a vehicle.", 3000)
     end
 end
 
@@ -343,19 +354,19 @@ local function Wander() -- Shadow of The Collossus?
 	local PlaVeh = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false)
 	if PED.IS_PED_SITTING_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID()) then
 		TASK.TASK_VEHICLE_DRIVE_WANDER(PLAYER.PLAYER_PED_ID(), PlaVeh, AutoDriveSpeed, VehAutoDrive.Flag[VehAutoDrive.Mode + 1])
-		notify.info("TinkerScript - Auto-Wander", "Auto-Wander has started.", 3000)
+		notify.info("TinkerScripts - Auto-Wander", "Auto-Wander has started.", 3000)
 		while true do
 			VEHICLE.SET_VEHICLE_MAX_SPEED(PlaVeh, AutoDriveSpeed)
 			if drivemodechanged then TASK.SET_DRIVE_TASK_DRIVING_STYLE(PLAYER.PLAYER_PED_ID(), VehAutoDrive.Flag[VehAutoDrive.Mode + 1]) end
 			VehAutoDrive.SkipRedLight(PlaVeh)
 			if PAD.IS_CONTROL_JUST_PRESSED(0, 22) then -- SPACEBAR
-				notify.info("TinkerScript - Auto-Wander", "You took the wheel.", 3000)
+				notify.info("TinkerScripts - Auto-Wander", "You took the wheel.", 3000)
 				TASK.CLEAR_PED_TASKS(PLAYER.PLAYER_PED_ID()) return
 			end
 			script.yield(0)
 		end
 	else
-		notify.warn("TinkerScript - Auto-Wander", "You are not in a vehicle.", 3000)
+		notify.warn("TinkerScripts - Auto-Wander", "You are not in a vehicle.", 3000)
 	end
 end
 
@@ -372,7 +383,7 @@ local function Joyrider(jr_radius)
 		VEHICLE.SET_VEHICLE_UNDRIVEABLE(vehicle, 0)
 		VEHICLE.SET_VEHICLE_ENGINE_ON(vehicle, 1, 1, 0)
 	else
-		notify.info("TinkerScript - Joyrider", "No vehicles in radius ("..jr_radius.."m) detected.\nIncrease your Teleport Radius.", 3000)
+		notify.info("TinkerScripts - Joyrider", "No vehicles in radius ("..jr_radius.."m) detected.\nIncrease your Teleport Radius.", 3000)
 	end
 end
 
@@ -411,20 +422,20 @@ local function ReNameEditor() -- deprecated
 			MISC.DISPLAY_ONSCREEN_KEYBOARD(0, "CELL_7000", "", New_Name, nil, nil, nil, 64)
 			canrename = true
 		elseif MISC.UPDATE_ONSCREEN_KEYBOARD() ~= 0 then
-			notify.info("TinkerScript - Re-Name Editor", "Open an \"Input Box\" first.", 3000)
+			notify.info("TinkerScripts - Re-Name Editor", "Open an \"Input Box\" first.", 3000)
 			log.info(cls..lual.."Re-Name Editor: \27[33mOpen an \"Input Box\" first.\27[m"..cls.."\n") return
 		end
 	end
 	while canrename do
 		local nn = MISC.GET_ONSCREEN_KEYBOARD_RESULT()
 		if MISC.UPDATE_ONSCREEN_KEYBOARD() == 1 then
-			notify.success("TinkerScript - Re-Name Editor", "New name is:\n"..nn, 3000)
+			notify.success("TinkerScripts - Re-Name Editor", "New name is:\n"..nn, 3000)
 			log.info(string.format("%s%s\27[ARe-Name Editor: \27[32mNew name is:\27[m%s %s%s", cls, lual, nn, cls, cls))
 			New_Name = ""
 			canrename = false
 			return
 		elseif MISC.UPDATE_ONSCREEN_KEYBOARD() == 2 then
-			notify.info("TinkerScript - Re-Name Editor", "Logic canceled.", 3000)
+			notify.info("TinkerScripts - Re-Name Editor", "Logic canceled.", 3000)
 			log.info(cls..lual.."\27[ARe-Name Editor: Logic canceled.                             \27[B\r                                      "..cls)
 			canrename = false
 			return
@@ -464,16 +475,16 @@ local ReN_Color = {
 local ReN_selectedprop
 -- local New_PropName = "" -- Replaced with original one
 local ReN_Properties = {
-	{ renProperty = "Office",			renPropStat = "MPX_GB_OFFICE_NAME",			renPropStat2 = "MPX_GB_OFFICE_NAME2"},
-	{ renProperty = "Organization",		renPropStat = "MPX_GB_GANG_NAME",			renPropStat2 = "MPX_GB_GANG_NAME2"},
-	{ renProperty = "MC Clubhouse",		renPropStat = "MPX_MC_CLBHOSE_NAME",		renPropStat2 = "MPX_MC_CLBHOSE_NAME2"},
-	{ renProperty = "MC Club",			renPropStat = "MPX_MC_GANG_NAME",			renPropStat2 = "MPX_MC_GANG_NAME2"},
-	{ renProperty = "Yacht",			renPropStat = "MPX_YACHT_NAME",				renPropStat2 = "MPX_YACHT_NAME2"},
-	{ renProperty = "Nightclub",		renPropStat = "MPX_NIGHTCLUB_NAME",			renPropStat2 = "MPX_NIGHTCLUB_NAME2"},
-	{ renProperty = "Acid Lab",			renPropStat = "MPX_ACID_LAB_NAME",			renPropStat2 = "MPX_ACID_LAB_NAME2"},
-	{ renProperty = "Acid Lab Product",	renPropStat = "MPX_ACIDLAB_PRODUCT_NAME",	renPropStat2 = "MPX_ACIDLAB_PRODUCT_NAME2"},
-	{ renProperty = "Mansion Dog",		renPropStat = "MPX_MANSION_DOG_NAME1",		renPropStat2 = "MPX_MANSION_DOG_NAME2"},
-	{ renProperty = "Mansion Cat",		renPropStat = "MPX_MANSION_CAT_NAME1",		renPropStat2 = "MPX_MANSION_CAT_NAME2"}
+	{ renProperty = "Office",			renPropStat = "MPX_GB_OFFICE_NAME",			renPropStat2 = "MPX_GB_OFFICE_NAME2" },
+	{ renProperty = "Organization",		renPropStat = "MPX_GB_GANG_NAME",			renPropStat2 = "MPX_GB_GANG_NAME2" },
+	{ renProperty = "MC Clubhouse",		renPropStat = "MPX_MC_CLBHOSE_NAME",		renPropStat2 = "MPX_MC_CLBHOSE_NAME2" },
+	{ renProperty = "MC Club",			renPropStat = "MPX_MC_GANG_NAME",			renPropStat2 = "MPX_MC_GANG_NAME2" },
+	{ renProperty = "Yacht",			renPropStat = "MPX_YACHT_NAME",				renPropStat2 = "MPX_YACHT_NAME2" },
+	{ renProperty = "Nightclub",		renPropStat = "MPX_NIGHTCLUB_NAME",			renPropStat2 = "MPX_NIGHTCLUB_NAME2" },
+	{ renProperty = "Acid Lab",			renPropStat = "MPX_ACID_LAB_NAME",			renPropStat2 = "MPX_ACID_LAB_NAME2" },
+	{ renProperty = "Acid Lab Product",	renPropStat = "MPX_ACIDLAB_PRODUCT_NAME",	renPropStat2 = "MPX_ACIDLAB_PRODUCT_NAME2" },
+	{ renProperty = "Mansion Dog",		renPropStat = "MPX_MANSION_DOG_NAME1",		renPropStat2 = "MPX_MANSION_DOG_NAME2" },
+	{ renProperty = "Mansion Cat",		renPropStat = "MPX_MANSION_CAT_NAME1",		renPropStat2 = "MPX_MANSION_CAT_NAME2" }
 }
 
 local JBvJG = {
@@ -523,13 +534,11 @@ local function RapidOxidation()
 	end
 end
 
-commandmgr.add_looped_command("rapidoxidation", "Rapid Oxidation", "Johnny Blaze meets Jean Grey...\n\nPress [G] to become Ghost Rider.\nPress [B] to unleash The Phoenix!", function()
-	RapidOxidation()
-end, function()
-	notify.success("TinkerScript - Rapid Oxidation", "Rapid Oxidation enabled\nPress [G] to become Ghost Rider.\nPress [B] to unleash The Phoenix!", 3000)
+commandmgr.add_looped_command("rapidoxidation", "Rapid Oxidation", "Johnny Blaze meets Jean Grey...\n\nPress [G] to become Ghost Rider.\nPress [B] to unleash The Phoenix!", RapidOxidation, function()
+	notify.success("TinkerScripts - Rapid Oxidation", "Rapid Oxidation enabled\nPress [G] to become Ghost Rider.\nPress [B] to unleash The Phoenix!", 3000)
 	players.get_local():get_ped():set_invincible(true)
 end, function()
-	notify.info("TinkerScript - Rapid Oxidation", "Rapid Oxidation disabled.", 3000)
+	notify.info("TinkerScripts - Rapid Oxidation", "Rapid Oxidation disabled.", 3000)
 	players.get_local():get_ped():set_invincible(false)
 end)
 
@@ -641,9 +650,7 @@ local function TinyPlayer()
 	end
 end
 
-commandmgr.add_looped_command("tinyplayer", "TinyPlayer", "Become Ant-Man?", function()
-	TinyPlayer()
-end, function()
+commandmgr.add_looped_command("tinyplayer", "TinyPlayer", "Become Ant-Man?\n[X]", TinyPlayer, function()
 	for _, i in ipairs {"core", "scr_fm_mp_missioncreator", "proj_indep_firework_v2", "scr_indep_fireworks", "scr_rcbarry2", "scr_powerplay"} do
 		STREAMING.REQUEST_NAMED_PTFX_ASSET(i)
 	end
@@ -660,6 +667,18 @@ end, function()
 end)
 
 commandmgr.add_list_command("tinyp_ptfxlist", "Particle effects", "", PTFXt, 1, nil)
+
+commandmgr.add_bool_command("vehicles_blackout", "Vehicles", "Vehicle Lights", true, function()
+	GRAPHICS.SET_ARTIFICIAL_VEHICLE_LIGHTS_STATE(false)
+end, function()
+	GRAPHICS.SET_ARTIFICIAL_VEHICLE_LIGHTS_STATE(true)
+end)
+
+commandmgr.add_bool_command("citylights_blackout", "Blackout", "Turns the lights off.", false, function()
+	GRAPHICS.SET_ARTIFICIAL_LIGHTS_STATE(true)
+end, function()
+	GRAPHICS.SET_ARTIFICIAL_LIGHTS_STATE(false)
+end)
 
 commandmgr.add_bool_command("hiddenlocs", "Hidden Locations", "Teleport to Hidden/Random Locations.", false, nil)
 
@@ -715,7 +734,7 @@ TS_Main:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join 
 			end
 		end
 
-		ImGui.Text("General")ImGui.Separator()ImGui.Spacing()
+		ImGui.Text("Self")ImGui.Separator()ImGui.Spacing()
 
 		ImGui.BeginGroup()
 	    commandmgr.get_command("fastrespawn"):draw()
@@ -848,9 +867,9 @@ TS_Main:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join 
 					notify.success("Outfit Renamer", "Slot " .. (OR_selected) .. " renamed!", 3000)
 					New_Name = ""
 				elseif (New_Name ~= "" or New_Name == "") and OR_selected <= 0 then
-					notify.error("TinkerScript - Re-Name", "Select something first!", 3000)
+					notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
 				elseif New_Name == "" and OR_selected > 0 then
-					notify.error("TinkerScript - Re-Name", "Name is empty!\nPlease enter a name.", 3000)
+					notify.error("TinkerScripts - Re-Name", "Name is empty!\nPlease enter a name.", 3000)
 				end
 			end
 
@@ -860,7 +879,7 @@ TS_Main:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join 
 					ImGui.SetClipboardText(copyoutfitname)
 					notify.info("Outfit Renamer", "Copied: " .. copyoutfitname, 3000)
 				else
-					notify.error("TinkerScript - Re-Name", "Select something first!", 3000)
+					notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
 				end
 			end
 
@@ -886,7 +905,7 @@ TS_Main:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join 
 				if selected_prop ~= nil or OR_selected > 0 then
 					New_Name = New_Name .. textformat.tStyle
 				else
-					notify.error("TinkerScript - Re-Name", "Select something first!", 3000)
+					notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
 				end
 			end if ImGui.IsItemHovered() then ImGui.SetTooltip(textformat.tStyle) end
 		end
@@ -917,7 +936,7 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 				if selected_prop ~= nil or OR_selected > 0 then
 					New_Name = New_Name .. textcolor.tColf
 				else
-					notify.error("TinkerScript - Re-Name", "Select something first!", 3000)
+					notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
 				end
 			end if ImGui.IsItemHovered() then ImGui.SetTooltip(textcolor.bTip..": "..textcolor.tColf) end
 		end
@@ -930,7 +949,7 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 
 	if ImGui.BeginTabItem("Misc") then
 
-		ImGui.Text("Misc")ImGui.Separator()ImGui.Spacing()
+		--ImGui.Text("Misc")ImGui.Separator()ImGui.Spacing()
 
 		commandmgr.get_command("DuffelBagSave"):draw()
 		commandmgr.get_command("noclip_anim"):draw()
@@ -950,7 +969,6 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 				ImGui.SameLine() commandmgr.get_command("tinyp_ptfxlist"):draw()
 			end
 		end
-
 		PTFX = commandmgr.get_command("tinyp_ptfxlist"):get_value()
 
 		ImGui.SameLine(0, 200)
@@ -969,6 +987,11 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Triggers Nostalgia") end
 		ImGui.PopStyleColor()ImGui.PopStyleColor()ImGui.PopStyleColor()
 
+		commandmgr.get_command("citylights_blackout"):draw()
+		if commandmgr.get_command("citylights_blackout"):get_value() then
+			ImGui.SameLine() commandmgr.get_command("vehicles_blackout"):draw()
+		end
+
 		commandmgr.get_command("hiddenlocs"):draw()
 		if commandmgr.get_command("hiddenlocs"):get_value() then
 			CurPlayerCoords()
@@ -978,7 +1001,7 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 			ImGui.SameLine()
 			if ImGui.Button("Copy To Clipboard") then
 				ImGui.SetClipboardText(string.format("%.2f, %.2f, %.2f", PlaCoords.x, PlaCoords.y, PlaCoords.z))
-				notify.success("TinkerScript - Hidden Locations", "Current Coordinates copied to clipboard!", 3000)
+				notify.success("TinkerScripts - Hidden Locations", "Current Coordinates copied to clipboard!", 3000)
 			end
 
 			if ImGui.BeginListBox("##hiddenlocsbox"..nomoretreeplease, 354, 232) then
@@ -1029,7 +1052,17 @@ local PropGlob = {
 	bbizprop = 1845347 + 260 + 205,
 	ncprop = 1845347 + 260 + 364,
 	syprop = 1845347 + 260 + 504,
-	mcbar = 1845347 + 260 + 394
+	mcbar = 1845347 + 260 + 394,
+	ArraySize = 884,
+	Safes = {
+		{ Property = "Nightclub",		   Owned = "MPX_NIGHTCLUB_OWNED",   	SafeVal = "MPX_CLUB_SAFE_CASH_VALUE",   	Earnings = 2708943 },
+		{ Property = "Arcade",			   Owned = "MPX_ARCADE_OWNED",      	SafeVal = "MPX_ARCADE_SAFE_CASH_VALUE", 	Earnings = 2708952 },
+		{ Property = "Agency",			   Owned = "MPX_FIXER_HQ_OWNED",    	SafeVal = "MPX_FIXER_SAFE_CASH_VALUE",  	Earnings = 2708961 },
+		{ Property = "Salvage Yard",	   Owned = "MPX_SALVAGE_YARD_OWNED",	SafeVal = "MPX_SALVAGE_SAFE_CASH_VALUE",	Earnings = 2708970 },
+		{ Property = "Bail Office",		   Owned = "MPX_BAIL_OFFICE_OWNED", 	SafeVal = "MPX_BAIL_SAFE_CASH_VALUE",   	Earnings = 2708979 },
+		{ Property = "Garment Factory",	   Owned = "MPX_HACKER_DEN_OWNED",  	SafeVal = "MPX_HDEN24_SAFE_CASH_VALUE", 	Earnings = 2708994 },
+		{ Property = "Car Wash",		   Owned = "MPX_SB_CAR_WASH_OWNED", 	SafeVal = "MPX_CWASH_SAFE_CASH_VALUE",  	Earnings = 2709001 }
+	}
 }
 
 local BizRe_RestockSU = {
@@ -1088,7 +1121,7 @@ local BizRe_WHonly = false
 local BizRe_cancel = true
 local function BizRe_lotoggle()
 	if BizRe_cancel then
-		notify.warn("TinkerScript - Biz-Teroids", "Logic Canceled.", 3000)
+		notify.warn("TinkerScripts - Biz-Teroids", "Logic Canceled.", 3000)
 		BizRe_running = false
 		STATS.STAT_SAVE(0, 0, 3, 0)
 	end
@@ -1135,9 +1168,9 @@ local function GetBusinessSlot(businessName, Blog)
 end
 
 local function BizRe_Hangar()
-	if ScriptGlobal(PropGlob.hangarprop):at(PLAYER.PLAYER_ID(), 884):get_int() >= 1 then
+	if ScriptGlobal(PropGlob.hangarprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_int() >= 1 then
 		if not stats.get_packed_bool(15966) then stats.set_packed_bool(15966, true) end
-		if ScriptGlobal(PropGlob.hangarprop + 3):at(PLAYER.PLAYER_ID(), 884):get_int() <= 49 then
+		if ScriptGlobal(PropGlob.hangarprop + 3):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_int() <= 49 then
 			if HGWHmaxgoods then
 				if HGsetgood then
 					ScriptGlobal(1882787 + 8):set_int(HGgoodtype)
@@ -1147,7 +1180,7 @@ local function BizRe_Hangar()
 				STATS.STAT_SAVE(0, 0, 3, 0)
 				notify.success("Success!", "Hangar goods replenished!", 3000)
 			else
-				notify.info("TinkerScript - Biz-Teroids", "Instant Max Restock disabled. Hangar will be replenished with mixed goods.", 3000)
+				notify.info("TinkerScripts - Biz-Teroids", "Instant Max Restock disabled. Hangar will be replenished with mixed goods.", 3000)
 				for HGl = 0, 49 do if BizRe_running and BizRe_lotoggle() then return end
 					stats.set_packed_bool(36828, true)
 					script.yield(1500)
@@ -1159,17 +1192,17 @@ local function BizRe_Hangar()
 		if BizRe_HGonly then BizRe_cancel = true BizRe_HGonly = false end
 	else
 		if BizRe_HGonly then BizRe_cancel = true BizRe_HGonly = false end
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Hangar", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Hangar", 3000)
 	end
 end
 
 local function BizRe_Warehouse()
-	if ScriptGlobal(PropGlob.whprop):at(PLAYER.PLAYER_ID(), 884):at(0, 3):get_int() >= 1 then
+	if ScriptGlobal(PropGlob.whprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(0, 3):get_int() >= 1 then
 		if HGWHmaxgoods then
 			for WHp, c in ipairs({32359, 32360, 32361, 32362, 32363}) do if BizRe_running and BizRe_lotoggle() then return end
-				if ScriptGlobal(PropGlob.whprop):at(PLAYER.PLAYER_ID(), 884):at(WHp - 1, 3):get_int() >= 1 then
+				if ScriptGlobal(PropGlob.whprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(WHp - 1, 3):get_int() >= 1 then
 					if BizRe_running and BizRe_lotoggle() then return end
-					if ScriptGlobal(PropGlob.whprop + 1):at(PLAYER.PLAYER_ID(), 884):at(WHp - 1, 3):get_int() <= 110 then
+					if ScriptGlobal(PropGlob.whprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(WHp - 1, 3):get_int() <= 110 then
 						for i = 1, 2 do if BizRe_running and BizRe_lotoggle() then return end
 							if WHsetgood then ScriptGlobal(1882762 + 16):set_int(WHgoodtype) end
 							ScriptGlobal(1882762 + 13):set_int(111)
@@ -1185,23 +1218,26 @@ local function BizRe_Warehouse()
 			end
 			if BizRe_WHonly then BizRe_cancel = true BizRe_WHonly = false end
 		else
-			notify.info("TinkerScript - Biz-Teroids", "Instant Max Restock disabled. Warehouse will be replenished with mixed goods.", 3000) script.yield(3000)
-			for WHl = 1, 111 do if BizRe_running and BizRe_lotoggle() then return end
-				stats.set_packed_bool_range(32359, 32363, true)
-				script.yield(1200)
+			notify.info("TinkerScripts - Biz-Teroids", "Instant Max Restock disabled. Warehouse will be replenished with mixed goods.", 3000) script.yield(3000)
+			for WHl = 1, 60 do if BizRe_running and BizRe_lotoggle() then return end
+				for WHp, c in ipairs({32359, 32360, 32361, 32362, 32363}) do
+					ScriptGlobal(1882762 + 13):set_int(3)
+					stats.set_packed_bool(c, true)
+					script.yield(600)
+				end
 			end
 			if BizRe_WHonly then BizRe_cancel = true BizRe_WHonly = false end
 		end
 	else
 		if BizRe_WHonly then BizRe_cancel = true BizRe_WHonly = false end
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Warehouse", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Warehouse", 3000)
 	end
 end
 
 local function BizRe_MCresup()
 	tunables.set_int(1712674055, 1)
 	for b = 0, 7 do
-		if ScriptGlobal(PropGlob.bbizprop):at(PLAYER.PLAYER_ID(), 884):at(b, 13):get_int() >= 1 then
+		if ScriptGlobal(PropGlob.bbizprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(b, 13):get_int() >= 1 then
 			for bsup = 1, 7 do
 				ScriptGlobal(1673820 + bsup):set_int(1)
 			end
@@ -1217,7 +1253,7 @@ local function BizRe_MCrestock()
 
 	local methmc, slot = GetBusinessSlot("Methamphetamine Lab", true)
 	if methmc then
-		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), 884):at(slot, 13):get_int() <= 19 then
+		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(slot, 13):get_int() <= 19 then
 			for _, manuprod in ipairs(BizRe_RestockSU.methmc.manuprod) do
 				tunables.set_int(manuprod, 1)
 			end
@@ -1225,18 +1261,18 @@ local function BizRe_MCrestock()
 				tunables.set_int(manucost, 1)
 			end
 			script.yield(2000)
-			notify.success("Success!", "Meth Business restock ready!\nPlease restart your business.", 3000)
+			notify.success("Success!", "Meth Business restock ready!", 3000)
 		else
 			notify.warn("Oops!", "Meth Business stock is at max capacity!", 3000)
 		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Methamphetamine Lab.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Methamphetamine Lab.", 3000)
 	end
 
 	if BizRe_running and BizRe_lotoggle() then return end
 	local weedmc, slot = GetBusinessSlot("Weed Farm", true)
 	if weedmc then
-		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), 884):at(slot, 13):get_int() <= 79 then
+		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(slot, 13):get_int() <= 79 then
 			for _, manuprod in ipairs(BizRe_RestockSU.weedmc.manuprod) do
 				tunables.set_int(manuprod, 1)
 			end
@@ -1244,18 +1280,18 @@ local function BizRe_MCrestock()
 				tunables.set_int(manucost, 1)
 			end
 			script.yield(2000)
-			notify.success("Success!", "Weed Business restock ready!\nPlease restart your business.", 3000)
+			notify.success("Success!", "Weed Business restock ready!", 3000)
 		else
 			notify.warn("Oops!", "Weed Business stock is at max capacity!", 3000)
 		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Weed Farm.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Weed Farm.", 3000)
 	end
 
 	if BizRe_running and BizRe_lotoggle() then return end
 	local crackmc, slot = GetBusinessSlot("Cocaine Lockup", true)
 	if crackmc then
-		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), 884):at(slot, 13):get_int() <= 9 then
+		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(slot, 13):get_int() <= 9 then
 			for _, manuprod in ipairs(BizRe_RestockSU.crackmc.manuprod) do
 				tunables.set_int(manuprod, 1)
 			end
@@ -1263,18 +1299,18 @@ local function BizRe_MCrestock()
 				tunables.set_int(manucost, 1)
 			end
 			script.yield(2000)
-			notify.success("Success!", "Coke Business restock ready!\nPlease restart your business.", 3000)
+			notify.success("Success!", "Coke Business restock ready!", 3000)
 		else
 			notify.warn("Oops!", "Coke Business stock is at max capacity!", 3000)
 		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Cocaine Lockup.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Cocaine Lockup.", 3000)
 	end
 
 	if BizRe_running and BizRe_lotoggle() then return end
 	local cashmc, slot = GetBusinessSlot("Counterfeit Cash Factory", true)
 	if cashmc then
-		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), 884):at(slot, 13):get_int() <= 39 then
+		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(slot, 13):get_int() <= 39 then
 			for _, manuprod in ipairs(BizRe_RestockSU.cashmc.manuprod) do
 				tunables.set_int(manuprod, 1)
 			end
@@ -1282,18 +1318,18 @@ local function BizRe_MCrestock()
 				tunables.set_int(manucost, 1)
 			end
 			script.yield(2000)
-			notify.success("Success!", "Cash Business restock ready!\nPlease restart your business.", 3000)
+			notify.success("Success!", "Cash Business restock ready!", 3000)
 		else
 			notify.warn("Oops!", "Cash Business stock is at max capacity!", 3000)
 		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Counterfeit Cash Factory.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Counterfeit Cash Factory.", 3000)
 	end
 
 	if BizRe_running and BizRe_lotoggle() then return end
 	local fakeidmc, slot = GetBusinessSlot("Document Forgery Office", true)
 	if fakeidmc then
-		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), 884):at(slot, 13):get_int() <= 59 then
+		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(slot, 13):get_int() <= 59 then
 			for _, manuprod in ipairs(BizRe_RestockSU.fakeidmc.manuprod) do
 				tunables.set_int(manuprod, 1)
 			end
@@ -1301,18 +1337,18 @@ local function BizRe_MCrestock()
 				tunables.set_int(manucost, 1)
 			end
 			script.yield(2000)
-			notify.success("Success!", "Documents Business restock ready!\nPlease restart your business.", 3000)
+			notify.success("Success!", "Documents Business restock ready!", 3000)
 		else
 			notify.warn("Oops!", "Documents Business stock is at max capacity!", 3000)
 		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Document Forgery Office.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Document Forgery Office.", 3000)
 	end
 
 	if BizRe_running and BizRe_lotoggle() then return end
 	local bunkermc, slot = GetBusinessSlot("Bunker", true)
 	if bunkermc then
-		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), 884):at(slot, 13):get_int() <= 99 then
+		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(slot, 13):get_int() <= 99 then
 			for _, manuprod in ipairs(BizRe_RestockSU.bunkermc.manuprod) do
 				tunables.set_int(manuprod, 1)
 			end
@@ -1320,16 +1356,16 @@ local function BizRe_MCrestock()
 				tunables.set_int(manucost, 1)
 			end
 			script.yield(2000)
-			notify.success("Success!", "Bunker Business restock ready!\nPlease restart your business.", 3000)
+			notify.success("Success!", "Bunker Business restock ready!", 3000)
 		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Bunker.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Bunker.", 3000)
 	end
 
 	if BizRe_running and BizRe_lotoggle() then return end
-	if ScriptGlobal(PropGlob.bbizprop):at(PLAYER.PLAYER_ID(), 884):at(6, 13):get_int() >= 1 then
+	if ScriptGlobal(PropGlob.bbizprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(6, 13):get_int() >= 1 then
 		if not stats.get_packed_bool(36689) then stats.set_packed_bool(36689, true) end
-		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), 884):at(6, 13):get_int() <= 159 then
+		if ScriptGlobal(PropGlob.bbizprop + 1):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(6, 13):get_int() <= 159 then
 			for _, manuprod in ipairs(BizRe_RestockSU.acidmc.manuprod) do
 				tunables.set_int(manuprod, 1)
 			end
@@ -1337,36 +1373,46 @@ local function BizRe_MCrestock()
 				tunables.set_int(manucost, 1)
 			end
 			script.yield(2000)
-			notify.success("Success!", "Acid Lab Business restock ready!\nPlease restart your business.", 3000)
+			notify.success("Success!", "Acid Lab Business restock ready!", 3000)
 		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own an Acid Lab.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own an Acid Lab.", 3000)
 	end
+
+	script.yield(3000)
+	for i = 0, 6 do
+		if ScriptGlobal(PropGlob.bbizprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(i, 13):get_int() >= 1 then
+			ScriptGlobal(PropGlob.bbizprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(i, 13):at(9):set_int(1)
+		end
+	end
+	notify.info("TinkerScripts - Biz-Teroids", "Restocking MC Businesses...\nCheck the progress with the MCT.", 3000)
 end
 
 
 local function BizRe_NCrestock()
-	if ScriptGlobal(PropGlob.ncprop):at(PLAYER.PLAYER_ID(), 884):get_int() >= 1 then
+	if ScriptGlobal(PropGlob.ncprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_int() >= 1 then
 		if ScriptGlobal(PropGlob.ncprop + 4):get_float() <= 99.0 then
 			stats.set_int("MPX_CLUB_POPULARITY", 1000)
 			notify.success("Success!", "Nightclub Popularity has been maxed out!", 3000)
 		end
 		for _, manuprod in ipairs(BizRe_RestockSU.nightclub.manuprod) do
-			tunables.set_int(manuprod, 1)
+			tunables.set_int(manuprod, 100)
 		end
-		notify.success("Success!", "Nightclub restock ready!\nPlease re-assign your technicians.", 3000)
-		script.yield(2000)
+		notify.success("Success!", "Nightclub restock ready!.", 3000)
+		for i = 0, 6 do
+			ScriptGlobal(2709197):at(i, 1):set_int(1)
+		end
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Nightclub.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Nightclub.", 3000)
 	end
 end
 
 local function BizRe_SalvPop()
-	if ScriptGlobal(PropGlob.syprop):at(PLAYER.PLAYER_ID(), 884):get_int() >= 1 then
+	if ScriptGlobal(PropGlob.syprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_int() >= 1 then
 		stats.set_packed_int(51051, 100)
 		notify.success("Success!", "Salvage Yard Popularity has been maxed out!", 3000)
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own a Salvage Yard.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own a Salvage Yard.", 3000)
 	end
 end
 
@@ -1378,7 +1424,7 @@ local function BizRe_MFheat()
 		notify.success("Success!", "Money Fronts Businesses Heat Removed!", 3000)
 		script.yield(2000)
 	else
-		notify.error("TinkerScript - Biz-Teroids", "You don't own Hands on Car Wash.", 3000)
+		notify.error("TinkerScripts - Biz-Teroids", "You don't own Hands on Car Wash.", 3000)
 	end
 end
 
@@ -1388,7 +1434,7 @@ local function BusinessOnSteroids()
 local function Countdown()
 	local cd_cls = "\r                                                                                \r"
 	for i = 10, 1, -1 do if BizRe_lotoggle() then return end
-		notify.info("TinkerScript - Biz-Teroids by ImagineNothing", "Main logic will start in "..i..".", 999)
+		notify.info("TinkerScripts - Biz-Teroids by ImagineNothing", "Main logic will start in "..i..".", 999)
 		log.info(cd_cls.."Main logic will start in: "..i.."  \r\27[1A") script.yield(999)
 	end
 	log.info(cd_cls.."\27[1AStarting...                           \r")
@@ -1415,28 +1461,28 @@ end
 		if BizRe_lotoggle() then return end
 		BizRe_Warehouse()
 	else
-		notify.info("TinkerScript - Biz-Teroids", "Hangar & Warehouse restock disabled. Skipping...", 3000)
+		notify.info("TinkerScripts - Biz-Teroids", "Hangar & Warehouse restock disabled. Skipping...", 3000)
 	end
 
 	script.yield(3000)
 
 	if BizRe_lotoggle() then return end
-	if MCresup then BizRe_MCresup() else notify.info("TinkerScript - Biz-Teroids", "MC Businesses Resupply disabled. Skipping...", 3000) end
+	if MCresup then BizRe_MCresup() else notify.info("TinkerScripts - Biz-Teroids", "MC Businesses Resupply disabled. Skipping...", 3000) end
 
 	script.yield(3000)
 
 	if BizRe_lotoggle() then return end
 	if MCrestock then
-		notify.info("TinkerScript - Biz-Teroids", "MC Businesses Restock enabled.", 3000)
+		notify.info("TinkerScripts - Biz-Teroids", "MC Businesses Restock enabled.", 3000)
 		BizRe_MCrestock()
 	else
-		notify.info("TinkerScript - Biz-Teroids", "MC Businesses Restock disabled. Skipping...", 3000)
+		notify.info("TinkerScripts - Biz-Teroids", "MC Businesses Restock disabled. Skipping...", 3000)
 	end
 
 	script.yield(3000)
 
 	if BizRe_lotoggle() then return end
-	if NCgoods then BizRe_NCrestock() else notify.info("TinkerScript - Biz-Teroids", "Nigtclub Restock disabled. Skipping...", 3000) end
+	if NCgoods then BizRe_NCrestock() else notify.info("TinkerScripts - Biz-Teroids", "Nigtclub Restock disabled. Skipping...", 3000) end
 
 	script.yield(3000)
 
@@ -1449,32 +1495,44 @@ end
 	BizRe_running = false
 
 	log.info("\r                                                                                \r\n\r\27[1B\27[42;30m End \27[m\n")
-	notify.success("TinkerScript - Biz-Teroids", "Finished!", 3000)
+	notify.success("TinkerScripts - Biz-Teroids", "Finished!", 3000)
 
 end
 
 commandmgr.add_bool_command("HGWH_restock", "Hangar/Warehouse Restock", "Should the script restock your Hangar and Warehouses?", true, nil)
-commandmgr.add_bool_command("HGWH_maxgoods", "Hangar/Warehouse Max Goods", "Should the script instantly max out your Hangar and Warehouses stock?\nIf disabled, restock will be a bit slower, but you'll receive mixed goods", true, nil)
-commandmgr.add_bool_command("HG_setgood", "Hangar Set Good", "Goods type for Hangar will be random if this is disabled", false, nil)
-commandmgr.add_bool_command("WH_setgood", "Warehouse Set Good", "Goods type for Warehouses will be random if this is disabled", false, nil)
+commandmgr.add_bool_command("HGWH_maxgoods", "Instant Max Restock", "Should the script instantly max out your Hangar and Warehouses stock?\nIf disabled, restock will be a bit slower, but you'll receive mixed goods.", true, nil)
+commandmgr.add_bool_command("HG_setgood", "Hangar Set Good", "Goods type for Hangar will be random if this is disabled.", false, nil)
+commandmgr.add_bool_command("WH_setgood", "Warehouse Set Good", "Goods type for Warehouses will be random if this is disabled.", false, nil)
 commandmgr.add_bool_command("MC_resup", "MC Businesses Resupply", "Should the script resupply all your MC Businesses?", true, nil)
 commandmgr.add_bool_command("MC_restock", "MC Businesses Restock", "Should the script restock your MC Businesses?", true, nil)
 commandmgr.add_bool_command("NC_goods", "Nightclub Restock", "Should the script restock your Nightclub?", true, nil)
 commandmgr.add_list_command("HG_goodtype", "Hangar Good type", "", HGgoodtypeT, 0, nil)
 commandmgr.add_list_command("WH_goodtype", "Warehouse Good type", "", WHgoodtypeT, 0, nil)
 
+
+local allwh = false
+local WH_specialitem = {
+	{ 0, "Ornamental Egg",		Type = 2 },
+	{ 1, "Golden Minigun",		Type = 4 },
+	{ 2, "Extra Large Diamond",	Type = 6 },
+	{ 3, "Sasquatch Hide",		Type = 7 },
+	{ 4, "Film Reel",			Type = 8 },
+	{ 5, "Rare Pocket Watch",	Type = 9 }
+}
+commandmgr.add_list_command("specialitem", "", "", WH_specialitem, 0, nil)
+
 local CEO_instantbuy_amount = 1
 
 local ncgotgood = false
 local ncstealamount = 1
 local NC_goodstype = {
-	{ 1, "Cargo and Shipments", 	goodTunable = 910739098,   goodDefaultAmount =  1},
-	{ 2, "Sporting Goods", 			goodTunable = -188055253,  goodDefaultAmount =  2},
-	{ 3, "South American Imports", 	goodTunable = -1924406700, goodDefaultAmount =  1},
-	{ 4, "Pharmaceutical Research", goodTunable = 1386540504,  goodDefaultAmount =  1},
-	{ 5, "Organic Produce", 		goodTunable = -1407470929, goodDefaultAmount =  7},
-	{ 6, "Printing & Copying", 		goodTunable = -681418413,  goodDefaultAmount =  10},
-	{ 7, "Cash Creation", 			goodTunable = -655270102,  goodDefaultAmount =  3}
+	{ 1, "Cargo and Shipments", 	goodTunable = 910739098,   goodDefaultAmount =  1  },
+	{ 2, "Sporting Goods", 			goodTunable = -188055253,  goodDefaultAmount =  2  },
+	{ 3, "South American Imports", 	goodTunable = -1924406700, goodDefaultAmount =  1  },
+	{ 4, "Pharmaceutical Research", goodTunable = 1386540504,  goodDefaultAmount =  1  },
+	{ 5, "Organic Produce", 		goodTunable = -1407470929, goodDefaultAmount =  7  },
+	{ 6, "Printing & Copying", 		goodTunable = -681418413,  goodDefaultAmount =  10 },
+	{ 7, "Cash Creation", 			goodTunable = -655270102,  goodDefaultAmount =  3  }
 }
 
 commandmgr.add_list_command("NC_goodtype", "Goods##ncgoodtype", "", NC_goodstype, 0, function()
@@ -1484,6 +1542,8 @@ commandmgr.add_list_command("NC_goodtype", "Goods##ncgoodtype", "", NC_goodstype
 		ncstealamount = NC_goodstype[NC_goodst].goodDefaultAmount
 	end
 end)
+
+local resizepanel = 314
 
 TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join a freemode session.") return end
 
@@ -1500,120 +1560,62 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 	ImGui.Text("Control Panel")ImGui.Separator()ImGui.Spacing()
 
 	ImGui.BeginGroup()
-	commandmgr.get_command("HGWH_restock"):draw()
-	commandmgr.get_command("HGWH_maxgoods"):draw()
-	commandmgr.get_command("HG_setgood"):draw()
+	if HGsetgood or WHsetgood then resizepanel = 346 else resizepanel = 314 end
+	if HGsetgood and WHsetgood then resizepanel = 379 end
 
-	if commandmgr.get_command("HG_setgood"):get_value() then
-		commandmgr.get_command("HG_goodtype"):draw()
-		ImGui.Spacing()
+	if ImGui.BeginChild("##bizteroidspanelchild", 360, resizepanel, 1) then
+		commandmgr.get_command("HGWH_restock"):draw()
+		commandmgr.get_command("HGWH_maxgoods"):draw()
+		commandmgr.get_command("HG_setgood"):draw()
+
+		if commandmgr.get_command("HG_setgood"):get_value() then
+			commandmgr.get_command("HG_goodtype"):draw()
+			ImGui.Spacing()
+		end
+
+		commandmgr.get_command("WH_setgood"):draw()
+
+		if commandmgr.get_command("WH_setgood"):get_value() then
+			commandmgr.get_command("WH_goodtype"):draw()
+			ImGui.Spacing()
+		end
+
+		commandmgr.get_command("MC_resup"):draw()
+		commandmgr.get_command("MC_restock"):draw()
+		commandmgr.get_command("NC_goods"):draw()
+
+		ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
+		if BizRe_cancel and ImGui.Button("Run!", 80, 40) then
+			BizRe_running = true
+			BizRe_cancel = false
+			script.run_in_callback(BusinessOnSteroids)
+		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Bless the Businesses.") end
+
+		if BizRe_cancel then
+			ImGui.SameLine()
+			ImGui.BeginGroup()
+			ImGui.Spacing()ImGui.Spacing()
+			BizRe_count = ImGui.Checkbox("Countdown", BizRe_count)
+			ImGui.EndGroup()
+		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to disable the 10s countdown when running Biz-Teroids") end
+
+		if not BizRe_cancel and BizRe_running then
+			if ImGui.Button("Cancel", 80, 40) then
+				BizRe_cancel = true
+			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Cancels Biz-Teroids logic.") end
+		end
 	end
-
-	commandmgr.get_command("WH_setgood"):draw()
-
-	if commandmgr.get_command("WH_setgood"):get_value() then
-		commandmgr.get_command("WH_goodtype"):draw()
-		ImGui.Spacing()
-	end
-
-	commandmgr.get_command("MC_resup"):draw()
-	commandmgr.get_command("MC_restock"):draw()
-	commandmgr.get_command("NC_goods"):draw()
-
-	ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
-	if BizRe_cancel and ImGui.Button("Run!", 80, 40) then
-		BizRe_running = true
-		BizRe_cancel = false
-		script.run_in_callback(BusinessOnSteroids)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Bless the Businesses.") end
-
-	if BizRe_cancel then
-		ImGui.SameLine()
-		ImGui.BeginGroup()
-		ImGui.Spacing()ImGui.Spacing()
-		BizRe_count = ImGui.Checkbox("Countdown", BizRe_count)
-		ImGui.EndGroup()
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to disable the 10s countdown when running Biz-Teroids") end
-
-	if not BizRe_cancel and BizRe_running then
-		if ImGui.Button("Cancel", 80, 40) then
-			BizRe_cancel = true
-		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Cancels Biz-Teroids logic.") end
-	end
+	ImGui.EndChild()
 	ImGui.EndGroup()
 
-    ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
-	ImGui.Text("Individual Features")ImGui.Separator()ImGui.Spacing()
-
+	ImGui.SameLine(0, 20)
 	ImGui.BeginGroup()
-	if ImGui.Button("Master Control Terminal", 185) then
-		script.run_in_callback(OpenMCT)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Manage your businesses.") end ImGui.SameLine()
-
-	if ImGui.Button("Owned Businesses", 185) then
-		for _, Business in ipairs(MCbiz) do
-			GetBusinessSlot(Business.MCBname, true)
-		end
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Prints your owned businesses to console.") end ImGui.NewLine()
-
-	if ImGui.Button("Restock Hangar", 185) then
-		BizRe_HGonly = true
-		BizRe_running = true
-		BizRe_cancel = false
-		script.run_in_callback(BizRe_Hangar)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks your Hangar.") end ImGui.SameLine()
-
-	if ImGui.Button("Restock Warehouse", 185) then
-		BizRe_WHonly = true
-		BizRe_running = true
-		BizRe_cancel = false
-		script.run_in_callback(BizRe_Warehouse)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks your Warehouse(s).") end
-
-	if ImGui.Button("Restock MC Businesses", 185) then
-		BizRe_running = true
-		BizRe_cancel = false
-		script.run_in_callback(BizRe_MCrestock)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks all your Motorcycle Club Businesses") end ImGui.SameLine()
-
-	if ImGui.Button("Resupply MC Businesses", 185) then
-		BizRe_MCresup()
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Resupplies all your Motorcycle Club Businesses.") end
-
-	if ImGui.Button("Restock Nightclub", 185) then
-		script.run_in_callback(BizRe_NCrestock)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks your Nightclub.") end ImGui.SameLine()
-
-	if ImGui.Button("Businesses Heat", 185) then
-		script.run_in_callback(BizRe_MFheat)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Removes Money Fronts Heat.") end
-
-	if ImGui.Button("Nightclub Popularity", 185) then
-		if ScriptGlobal(PropGlob.ncprop):at(PLAYER.PLAYER_ID(), 884):get_int() >= 1 then
-			if stats.get_int("MPX_CLUB_POPULARITY") <= 999 then
-				stats.set_int("MPX_CLUB_POPULARITY", 1000)
-				notify.success("Success!", "Nightclub Popularity has been maxed out!", 3000)
-			end
-		else
-			notify.error("TinkerScript - Biz-Teroids", "You don't own a Nightclub.", 3000)
-		end
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Sets your Nightclub popularity to max.") end ImGui.SameLine()
-
-	if ImGui.Button("Salvage Yard Popularity", 185) then
-		BizRe_SalvPop()
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Sets your Salvage Yard popularity to max.") end
-	ImGui.EndGroup()
-
-	ImGui.SameLine()
 	ImGui.Spacing()
-	ImGui.SameLine(0, 3.8)
-
-	ImGui.BeginGroup()
+	ImGui.Spacing()
 	if ImGui.TreeNodeEx("Teleport to Business  ##"..nomoretreeplease, 8219) then
-		ImGui.NewLine()
 		ImGui.Spacing()
-		ImGui.SameLine(-3.8, 0)
-		if ImGui.BeginChild("##bizteroidstptoprop", 210, 112) then
+		ImGui.SameLine(-10.8, 0)
+		if ImGui.BeginChild("##bizteroidstptoprop", 220, 270, 1) then
 
 			if ImGui.Button("Hangar", 193) then
 				if stats.get_int("MPX_HANGAR_OWNED") >= 1 then
@@ -1660,9 +1662,160 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 					end
 				end
 			end
-
-		end ImGui.EndChild()
+		end
+		ImGui.EndChild()
 	end
+	ImGui.EndGroup()
+
+	ImGui.SameLine(0, 16)
+	ImGui.BeginGroup()
+	ImGui.Spacing()
+	ImGui.Spacing()
+	if ImGui.TreeNodeEx("   Miscellaneous       ##"..nomoretreeplease, 8219) then
+		ImGui.Spacing()
+		ImGui.SameLine(-5.2, 0)
+		if ImGui.BeginChild("##bizmiscchild", 258, 270, 1) then
+
+			ImGui.Spacing()
+			ImGui.SameLine(0, 3.8)
+			if ImGui.TreeNodeEx("Safe Earnings  ##"..nomoretreeplease, 8219) then
+				ImGui.BeginChild("##safechild", 220, 130, 1)
+				if ImGui.Button("Claim All Safe Earnings") then
+					script.run_in_callback(function()
+						for _, claimsafe in ipairs(PropGlob.Safes) do
+							if stats.get_int(claimsafe.Owned) ~= 0 and stats.get_int(claimsafe.SafeVal) ~= 0 then ScriptGlobal(claimsafe.Earnings):set_int(1) end
+							script.yield(2000)
+						end
+					end)
+				end
+				for _, safecash in ipairs(PropGlob.Safes) do
+					if stats.get_int(safecash.Owned) ~= 0 then ImGui.TextDisabled(string.format("%s: $%d", safecash.Property, stats.get_int(safecash.SafeVal))) end
+				end
+				ImGui.EndChild()
+			end
+
+			ImGui.Spacing()
+			ImGui.SameLine(0, 3.8)
+			if ImGui.TreeNodeEx("Source Special Item  ##"..nomoretreeplease, 8219) then
+				commandmgr.get_command("specialitem"):draw()
+				if ImGui.Button("Source") then
+					local specialitem_whpb
+					if allwh then
+						specialitem_whpb = {32359, 32360, 32361, 32362, 32363}
+					else
+						specialitem_whpb = {32359}
+					end
+					script.run_in_callback(function()
+						for _, item in ipairs(specialitem_whpb) do
+							ScriptGlobal(1882762 + 15):set_int(1)
+							ScriptGlobal(1882762 + 14):set_int(commandmgr.get_command("specialitem"):get_value())
+							ScriptGlobal(1882762 + 13):set_int(1)
+							ScriptGlobal(1882762 + 16):set_int(WH_specialitem[commandmgr.get_command("specialitem"):get_value() + 1].Type)
+							stats.set_packed_bool(item, true)
+							script.yield(4200)
+						end
+					end)
+				end
+				ImGui.SameLine()
+				allwh = ImGui.Checkbox("All Warehouses", allwh) if ImGui.IsItemHovered() then ImGui.SetTooltip("Sources the selected Special Item for all your warehouses.\nIf set to false, only your first warehouse will receive the Special Item.") end
+			end
+
+			ImGui.Spacing()
+			ImGui.SameLine(0, 3.8)
+			if ImGui.TreeNodeEx("Excess Weapon Parts  ##"..nomoretreeplease, 8219) then
+				if ImGui.Button("Trigger Excess Weapon Parts") then
+					GlobalSetBit(ScriptGlobal(2658296):at(PLAYER.PLAYER_ID(), 468):at(465), 1, 1)
+				end
+
+				if ImGui.Button("Deliver") then
+					if scripts.is_active("fm_content_ammunation") then
+						ScriptLocal("fm_content_ammunation", 2217 + 208):set_int(3)
+						ScriptLocal("fm_content_ammunation", 2154 + 1):set_int(-1071628608)
+					end
+				end
+			end
+
+			if ImGui.Button("Trigger Alien Egg Mission") then
+				if stats.get_int("MPX_LFETIME_BIKER_BUY_COMPLET5") < 600 then
+					stats.set_int("MPX_LFETIME_BIKER_BUY_COMPLET5", 600)
+					stats.set_int("MPX_LFETIME_BIKER_BUY_UNDERTA5", 600)
+				end
+				ScriptGlobal(2733326 + 3989 + 348):set_int(20)
+			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Sets your next Bunker Resupply Mission.") end
+
+			if ImGui.Button("Trigger Bar Earnings") then
+				script.run_in_callback(function()
+					for i = 1, 5 do
+						stats.set_packed_int(36620, 1)
+						script.yield(5000)
+						ScriptGlobal(1882760):set_int(1)
+					end
+				end)
+			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Fills your MC Clubhouse Bag\nCurrent Bar Earnings: $"..stats.get_int("MPX_BIKER_BAR_RESUPPLY_CASH")) end
+
+		end
+		ImGui.EndChild()
+	end
+	ImGui.EndGroup()
+
+    ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
+	ImGui.Text("Individual Features")ImGui.Separator()ImGui.Spacing()
+
+	ImGui.BeginGroup()
+	if ImGui.Button("Master Control Terminal", 185) then
+		script.run_in_callback(OpenMCT)
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Manage your businesses.") end ImGui.SameLine()
+
+	if ImGui.Button("Owned Businesses", 185) then
+		for _, Business in ipairs(MCbiz) do
+			GetBusinessSlot(Business.MCBname, true)
+		end
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Prints your owned businesses to console.") end ImGui.NewLine()
+
+	if ImGui.Button("Restock Hangar", 185) then
+		BizRe_HGonly = true
+		BizRe_running = true
+		BizRe_cancel = false
+		script.run_in_callback(BizRe_Hangar)
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks your Hangar.") end ImGui.SameLine()
+
+	if ImGui.Button("Restock Warehouses", 185) then
+		BizRe_WHonly = true
+		BizRe_running = true
+		BizRe_cancel = false
+		script.run_in_callback(BizRe_Warehouse)
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks your Warehouse(s).") end
+
+	if ImGui.Button("Restock MC Businesses", 185) then
+		script.run_in_callback(BizRe_MCrestock)
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks all your Motorcycle Club Businesses") end ImGui.SameLine()
+
+	if ImGui.Button("Resupply MC Businesses", 185) then
+		BizRe_MCresup()
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Resupplies all your Motorcycle Club Businesses.") end
+
+	if ImGui.Button("Restock Nightclub", 185) then
+		script.run_in_callback(BizRe_NCrestock)
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Restocks your Nightclub.") end ImGui.SameLine()
+
+	if ImGui.Button("Businesses Heat", 185) then
+		script.run_in_callback(BizRe_MFheat)
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Removes Money Fronts Heat.") end
+
+	if ImGui.Button("Nightclub Popularity", 185) then
+		if ScriptGlobal(PropGlob.ncprop):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_int() >= 1 then
+			if stats.get_int("MPX_CLUB_POPULARITY") <= 999 then
+				stats.set_int("MPX_CLUB_POPULARITY", 1000)
+				notify.success("Success!", "Nightclub Popularity has been maxed out!", 3000)
+			end
+		else
+			notify.error("TinkerScripts - Biz-Teroids", "You don't own a Nightclub.", 3000)
+		end
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Sets your Nightclub popularity to max.") end ImGui.SameLine()
+
+	if ImGui.Button("Salvage Yard Popularity", 185) then
+		BizRe_SalvPop()
+	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Sets your Salvage Yard popularity to max.") end
 	ImGui.EndGroup()
 
 	ImGui.SetWindowFontScale(0.6)
@@ -1676,7 +1829,7 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 		if scripts.is_active("gb_contraband_sell") then
 			ScriptLocal("gb_contraband_sell", 576 + 1):set_int(67230)
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Special Cargo Sell Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Special Cargo Sell Mission first!", 3000)
 		end
 	end
 
@@ -1685,7 +1838,7 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 			ScriptLocal("gb_smuggler", 1998 + 1035):set_int(0)
 			ScriptLocal("gb_smuggler", 1998 + 1078):set_int(1)
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Air-Freight Sell Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Air-Freight Sell Mission first!", 3000)
 		end
 	end
 
@@ -1693,7 +1846,7 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 		if scripts.is_active("gb_gunrunning") then
 			ScriptLocal("gb_gunrunning", 1275 + 774):set_int(0)
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Weapons Sell Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Weapons Sell Mission first!", 3000)
 		end
 	end
 
@@ -1701,7 +1854,7 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 		if scripts.is_active("gb_biker_contraband_sell") then
 			ScriptLocal("gb_biker_contraband_sell", 738 + 122):set_int(ScriptLocal("gb_biker_contraband_sell", 738 + 174):get_int())
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Product Sell Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Product Sell Mission first!", 3000)
 		end
 	end
 
@@ -1711,7 +1864,7 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 			ScriptLocal("business_battles_sell", 2395 + 204):set_int(1)
 			ScriptLocal("business_battles_sell", 2395 + 33):set_int(0)
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Goods Sell Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Goods Sell Mission first!", 3000)
 		end
 	end
 
@@ -1739,7 +1892,7 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 			ScriptLocal("gb_contraband_buy", 634 + 191):set_int(6)
 			ScriptLocal("gb_contraband_buy", 634 + 192):set_int(4)
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Special Cargo Buy Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Special Cargo Buy Mission first!", 3000)
 		end
 	end
 
@@ -1761,7 +1914,7 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 				script.yield(500) TpToBlip(true, Blips.LEVEL, false)
 			end)
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Goods Steal Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Goods Steal Mission first!", 3000)
 		end
 	end
 
@@ -1798,35 +1951,9 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 				players.get_local():set_wanted_level(0)
 			end)
 		else
-			notify.info("TinkerScript - Biz-Teroids", "You must start a Vehicle Cargo Steal Mission first!", 3000)
+			notify.info("TinkerScripts - Biz-Teroids", "You must start a Vehicle Cargo Steal Mission first!", 3000)
 		end
 	end
-
-	ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
-
-	ImGui.Text("Extras")ImGui.Separator()ImGui.Spacing()
-
-	if ImGui.Button("Trigger Excess Weapon Parts") then
-		GlobalSetBit(ScriptGlobal(2658296):at(PLAYER.PLAYER_ID(), 468):at(465), 1, 1)
-	end
-
-	if scripts.is_active("fm_content_ammunation") then
-		ImGui.SameLine()
-		if ImGui.Button("Deliver") then
-			ScriptLocal("fm_content_ammunation", 2217 + 208):set_int(3)
-			ScriptLocal("fm_content_ammunation", 2154 + 1):set_int(-1071628608)
-		end
-	end
-
-	if ImGui.Button("Trigger Bar Earnings") then
-		script.run_in_callback(function()
-			for i = 1, 5 do
-				stats.set_packed_int(36620, 1)
-				script.yield(1500)
-				ScriptGlobal(1882760):set_int(1)
-			end
-		end)
-	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Fills your MC Clubhouse Bag\nCurrent Bar Earnings: $"..stats.get_int("MPX_BIKER_BAR_RESUPPLY_CASH")) end
 end)
 
 ---|| Phone Master ||------------------------------------------------------------------------------
@@ -1983,10 +2110,10 @@ commandmgr.add_looped_command("pm_Anims", "Phone Animations", "Enables Phone Ani
 end, function()
 	if commandmgr.get_command("pm_ThemeList"):get_value() > 1 then
 		commandmgr.get_command("pm_Anims"):set_value(false)
-		notify.info("TinkerScript - Phone Master", "Enable \"Phone Animations\" before selecting a Theme.", 3000)
+		notify.info("TinkerScripts - Phone Master", "Enable \"Phone Animations\" before selecting a Theme.", 3000)
 	end
 	if commandmgr.get_command("pm_ModelCelltowa"):get_value() then
-		notify.info("TinkerScript - Phone Master", "Enable \"Phone Animations\" before enabling \"Celltowa Phone Model\".", 3000)
+		notify.info("TinkerScripts - Phone Master", "Enable \"Phone Animations\" before enabling \"Celltowa Phone Model\".", 3000)
 	end
 
 end, function()
@@ -1998,10 +2125,7 @@ end, function()
 
 end)
 
-commandmgr.add_looped_command("pm_LeanKey", "Manual Horizontal Mode", "Put your phone in horizontal mode by pressing [G].", function()
-	pm_Lean()
-end, function()
-end, function()
+commandmgr.add_looped_command("pm_LeanKey", "Manual Horizontal Mode", "Put your phone in horizontal mode by pressing [G].", pm_Lean, nil, function()
 	pm_AnimToggle(false)
 end)
 
@@ -2017,7 +2141,7 @@ commandmgr.add_looped_command("pm_ModelCelltowa", "Celltowa Phone Model", "eww..
 	end
 	if commandmgr.get_command("pm_ThemeList"):get_value() > 1 then
 		commandmgr.get_command("pm_ThemeList"):set_value(1)
-		notify.info("TinkerScript - Phone Master", "Disable \"Celltowa Phone Model\" before selecting a Phone Theme.", 3000)
+		notify.info("TinkerScripts - Phone Master", "Disable \"Celltowa Phone Model\" before selecting a Phone Theme.", 3000)
 	end
 
 end, function()
@@ -2030,13 +2154,11 @@ end, function()
 
 end)
 
-commandmgr.add_looped_command("pm_ScreenShot", "Remote Snapmatic", "Allows you to take a screenshot with Snapmatic at any moment by pressing [X].", function()
-	LetMeTakeASelfie()
-end)
+commandmgr.add_looped_command("pm_ScreenShot", "Remote Snapmatic", "Allows you to take a screenshot with Snapmatic at any moment by pressing [X].", LetMeTakeASelfie)
 
 commandmgr.add_list_command("pm_contactslist", "Strippers", "", pm_ContactOverrideList, 104)
 
-commandmgr.add_looped_command("pm_ContactOverride", "Contact Override", "Redirects the call to a custom selected contact. Overrides Lester.", function()
+commandmgr.add_looped_command("pm_ContactOverride", "Contact Override", "Redirects the call to a custom selected contact.\nOverrides Lester.\nOnly Strippers available.", function()
 	if ScriptGlobal(8817):get_int() == 12 then
 		ScriptGlobal(8817):set_int(commandmgr.get_command("pm_contactslist"):get_value())
 	end
@@ -2068,7 +2190,25 @@ commandmgr.add_list_command("pm_ColorSchemeList", "Color Scheme", "Allows you to
 end)
 
 local pm_resetpos = false
-TS_PhoneMaster:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join a freemode session.") return end
+
+local function ResetonSP()
+	if not network.is_session_started() and scripts.is_active("completionpercentage_controller") then
+		ScriptGlobal(80362):set_int(0)
+		while true do
+			local spchar = ENTITY.GET_ENTITY_MODEL(PLAYER.PLAYER_PED_ID())
+			if spchar == 225514697 then
+				PhoneMaster(0, "CELLPHONE_IFRUIT", 0) return
+			elseif spchar == -1692214353 then
+				PhoneMaster(0, "CELLPHONE_BADGER", 0) return
+			elseif spchar == -1686040670 then
+				PhoneMaster(0, "CELLPHONE_FACADE", 0) return
+			end
+		script.yield(10000)
+		end
+	end
+end
+
+TS_PhoneMaster:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join a freemode session.") script.run_in_callback(ResetonSP) return end
 
 	--ImGui.SeparatorText("Phone Master")
 	ImGui.Text("Main")ImGui.Separator()ImGui.Spacing()
@@ -2357,7 +2497,7 @@ TS_GoonVan:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please jo
 	if ImGui.Button("Teleport to "..GVteleport.locname) then
 		local GVloc = GVteleport.GVcoords
 		PED.SET_PED_COORDS_KEEP_VEHICLE(PLAYER.PLAYER_PED_ID(), GVloc[1], GVloc[2], GVloc[3]+1.0)
-	end  --ImGui.SameLine()
+	end --ImGui.SameLine()
 	ImGui.Spacing()ImGui.Spacing()
 
 	ImGui.Text("Slots Editor")ImGui.Separator()ImGui.Spacing()
@@ -2394,56 +2534,56 @@ TS_GoonVan:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please jo
 		ImGui.Spacing()
 		ImGui.SameLine(-3.8, 0)
 
-		--if ImGui.Button("WM29 Pistol") then
-		--	if transactions.can_use_transactions() then
-		--		--baskettranscationsdon'twork
-		--		--notify.success("TinkerScript - Gun Van Halen", "WM29 Pistol unlocked!\nPlease change sesions to see the changes", 3000)
-		--	else
-		--		stats.set_masked_int("MPX_CHAR_WEAP_FM_PURCHASE3", 31, 0, 1)
-		--		notify.success("TinkerScript - Gun Van Halen", "WM29 Pistol unlocked!\nPlease change sesions to see the changes", 3000)
-		--	end
-		--end
 		ImGui.BeginGroup()
+		if ImGui.Button("WM29 Pistol") then
+			if transactions.can_use_transactions() then
+				transactions.run_service("CATEGORY_SERVICE", "NET_SHOP_ACTION_SPEND", "WP_WT_PISTOLXM3_t0_v0", NETSHOPPING.NET_GAMESERVER_GET_PRICE("WP_WT_PISTOLXM3_t0_v0", "CATEGORY_WEAPON", 1))
+			else
+				stats.set_masked_int("MPX_CHAR_WEAP_FM_PURCHASE3", 31, 0, 1)
+				notify.success("TinkerScripts - Gun Van Halen", "WM29 Pistol unlocked!\nPlease change sesions to see the changes", 3000)
+			end
+		end
+
 		if ImGui.Button("Golf Club") then
 			stats.set_int("MPX_GCLUB_FM_AMMO_BOUGHT", 1) -- from https://www.unknowncheats.me/forum/4165404-post4.html
-			notify.success("TinkerScript - Gun Van Halen", "Golf Club unlocked!", 3000)
+			notify.success("TinkerScripts - Gun Van Halen", "Golf Club unlocked!", 3000)
 		end
 
 		if ImGui.Button("Stone Hatchet") then
 			stats.set_packed_int(7315, 6)
 			stats.set_packed_bool(22073, true)
-			notify.success("TinkerScript - Gun Van Halen", "Stone Hatchet unlocked!", 3000)
+			notify.success("TinkerScripts - Gun Van Halen", "Stone Hatchet unlocked!", 3000)
 		end
 
 		if ImGui.Button("Up-n-Atomizer") then
 			stats.set_packed_bool(25002, true)
-			notify.success("TinkerScript - Gun Van Halen", "Up-n-Atomizer unlocked!", 3000)
+			notify.success("TinkerScripts - Gun Van Halen", "Up-n-Atomizer unlocked!", 3000)
 		end
 
 		if ImGui.Button("Service Carbine") then
 			stats.set_packed_bool(32318, true)
-			notify.success("TinkerScript - Gun Van Halen", "Service Carbine unlocked!", 3000)
+			notify.success("TinkerScripts - Gun Van Halen", "Service Carbine unlocked!", 3000)
 		end
 
 		if ImGui.Button("Snowball Launcher") then
 			stats.set_packed_bool(42148, true)
-			notify.success("TinkerScript - Gun Van Halen", "Snowball Launcher unlocked!", 3000)
+			notify.success("TinkerScripts - Gun Van Halen", "Snowball Launcher unlocked!", 3000)
 		end
 
 		if ImGui.Button("Candy Cane") then
 			stats.set_packed_bool(42249, true)
-			notify.success("TinkerScript - Gun Van Halen", "Candy Cane unlocked!", 3000)
+			notify.success("TinkerScripts - Gun Van Halen", "Candy Cane unlocked!", 3000)
 		end
 
 		if ImGui.Button("The Shocker") then
 			stats.set_packed_bool(51196, true)
-			notify.success("TinkerScript - Gun Van Halen", "The Shocker unlocked!", 3000)
+			notify.success("TinkerScripts - Gun Van Halen", "The Shocker unlocked!", 3000)
 		end
 		ImGui.EndGroup()
 		ImGui.SameLine()
 		ImGui.Dummy(15.7, 0)
 	else
-		if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to unlock login bonus weapons and the ones that can't be purchased from the Gun Van.\nChange sessions if the unlocked weapon doesn't appear on the Weapon Wheel.") end
+		if ImGui.IsItemHovered() then ImGui.SetTooltip("Unlock login bonus weapons and others that can't be purchased from the Gun Van.\nChange sessions if the unlocked weapon doesn't appear on the Weapon Wheel.") end
 	end
 	ImGui.EndGroup()
 
@@ -2699,7 +2839,7 @@ TS_RainbowVeh:imgui(function() -- I was going to rework this part since I don't 
 			elseif newtext == 6 then
 				NewFlicker3 = 6
 				table.insert(plate_text_flicker, "")
-			elseif newtext > 6 then newtext = 6 notify.warn("TinkerScript - Rainbow Vehicles", "You can't add more words!", 3000) return end
+			elseif newtext > 6 then newtext = 6 notify.warn("TinkerScripts - Rainbow Vehicles", "You can't add more words!", 3000) return end
 		end
 		if newtext > 3 then ImGui.SameLine() if ImGui.Button("Remove Text")then
 			if newtext == 6 then
@@ -2761,7 +2901,7 @@ end)
 
 local function CrackCB()
 	if ScriptLocal("fm_mission_controller_2020", 29373 + 12):get_int() == -1 then
-		notify.error("TinkerScript - Cluckin' Raider", "You must be at the Safe first!", 3000) return
+		notify.error("TinkerScripts - Cluckin' Raider", "You must be at the Safe first!", 3000) return
 	end
 
 	for i = 0, 2 do
@@ -2778,7 +2918,7 @@ end
 
 local function CBTpToCrate()
 	if ScriptLocal("fm_mission_controller_2020", 21088):get_int() ~= 1149534208 then
-		notify.error("TinkerScript - Cluckin' Raider", "You must be at the Storage Facility first!", 3000) return
+		notify.error("TinkerScripts - Cluckin' Raider", "You must be at the Storage Facility first!", 3000) return
 	end
 
 	local CB_Cratecoords = ScriptLocal("fm_mission_controller_2020", 29373 + 1192):get_vector3()
@@ -2810,7 +2950,7 @@ end)
 
 local function CrackSH()
 	if ScriptLocal("fm_content_stash_house", 153 + 16):get_int() == -1 then
-		notify.error("TinkerScript - Stash House", "You must be at the Safe first!", 3000) return
+		notify.error("TinkerScripts - Stash House", "You must be at the Safe first!", 3000) return
 	end
 
 	for i = 0, 2 do
@@ -2822,7 +2962,7 @@ end
 
 local function TS_KortzStart()
 	if ScriptGlobal(1893070):at(PLAYER.PLAYER_ID(), 625):at(10):get_int() == -1 then
-		notify.error("TinkerScript - Kortz Center Cracker", "You must register as a Boss first!", 3000) return
+		notify.error("TinkerScripts - Kortz Center Cracker", "You must register as a Boss first!", 3000) return
 	end
 	if not scripts.is_active("fm_maintain_transition_players") then
 		ScriptGlobal(1980570 + 732 + 5):set_int(1)
@@ -2969,7 +3109,7 @@ commandmgr.add_looped_command("kortz_delcams", "Disable All Cameras", "Disables 
 	end
 	end, function()
 	kortzcamtimer = util.time()
-	notify.info("TinkerScript - Kortz Center Cracker", "Cameras Disabled!\nCameras rebooting in 12 seconds.")
+	notify.info("TinkerScripts - Kortz Center Cracker", "Cameras Disabled!\nCameras rebooting in 12 seconds.")
 	end, function()
 	kortzcamtimer = 0
 end)
@@ -3046,7 +3186,7 @@ commandmgr.add_looped_command("ch_opendoors", "Open All Doors##Cayo", "Opens All
 	end
 end)
 
-commandmgr.add_looped_command("autoloot", "Auto-Grab", "Auto-Grabs the loot", function()
+commandmgr.add_looped_command("autoloot", "Loot Auto-Grab", "Auto-Grabs the loot in heists.", function()
 	if scripts.is_active("fm_mission_controller") then
 		ScriptLocal("fm_mission_controller", 10713):set_int(4)
 		ScriptLocal("fm_mission_controller", 10713 + 14):set_float(2)
@@ -3077,31 +3217,30 @@ local criminalmmbonus = false
 ---|| Recovery + (Other Missions) ||------------------------------------------------------------------------------
 
 local AutoShop_Contract = {
-	{ 0,	"The Union Depository",    "The Robbery" },
-	{ 1,	"The Superdollar Deal",    "The Robbery" },
-	{ 2,	"The Bank Contract", 	   "The Robberies" },
-	{ 3,	"The E.C.U Job",		   "The Robbery" },
-	{ 4,	"The Prison Contract", 	   "The Hit" },
-	{ 5,	"The Agency Deal", 		   "The Raid" },
-	{ 6,	"The LOST Contract", 	   "The Job" },
-	{ 7,	"The Data Contract", 	   "The Robbery" },
-	{ 8,	"None" }
+	Contract = {
+		{ 0,	"The Union Depository",    "The Robbery" },
+		{ 1,	"The Superdollar Deal",    "The Robbery" },
+		{ 2,	"The Bank Contract", 	   "The Robberies" },
+		{ 3,	"The E.C.U Job",		   "The Robbery" },
+		{ 4,	"The Prison Contract", 	   "The Hit" },
+		{ 5,	"The Agency Deal", 		   "The Raid" },
+		{ 6,	"The LOST Contract", 	   "The Job" },
+		{ 7,	"The Data Contract", 	   "The Robbery" },
+		{ 8,	"None" }
+	},
+	AutoShop_Refresh = function() if scripts.is_active("tuner_planning") then ScriptLocal("tuner_planning", 418):set_int(2) end end
 }
 
-commandmgr.add_list_command("autoshop_contracts", "Contracts", "", AutoShop_Contract, stats.get_int("MPX_TUNER_CURRENT"), function()
+commandmgr.add_list_command("autoshop_contracts", "Contracts", "", AutoShop_Contract.Contract, stats.get_int("MPX_TUNER_CURRENT"), function()
 	stats.set_int("MPX_TUNER_CURRENT", commandmgr.get_command("autoshop_contracts"):get_value())
-	local selected_autoshopcontract = AutoShop_Contract[stats.get_int("MPX_TUNER_CURRENT") + 1][2]
+	local selected_autoshopcontract = AutoShop_Contract.Contract[stats.get_int("MPX_TUNER_CURRENT") + 1][2]
 	if commandmgr.get_command("autoshop_contracts"):get_value() ~= 8 then
-		notify.success("TinkerScript - Auto Shop Contract", "Contract Selected: "..selected_autoshopcontract, 3000)
+		notify.success("TinkerScripts - Auto Shop Contract", "Contract Selected: "..selected_autoshopcontract, 3000)
 	else
 		stats.set_int("MPX_TUNER_CURRENT", -1)
 	end
 	STATS.STAT_SAVE(0, 0, 3, 0)
 end)
-
-local function AutoShop_Reload()
-	if scripts.is_active("tuner_planning") then ScriptLocal("tuner_planning", 418):set_int(2) end
-end
 
 local CluckinBellRaid = {
 	GetSetupStats = { ApproachPB = stats.get_packed_bool(42108) and 1 or 0, WeaponsPI = stats.get_packed_int(51019), GearPI = stats.get_packed_int(51021), GetawayVehiclePI = stats.get_packed_int(51023) }, -- Unnecessary, just testing tables
@@ -3139,6 +3278,188 @@ local OzcarGuzmanFliesAgain = { -- I'm learning luaaaaaaaaaaaaaaaaaa
 	S_Ammunition = { Setup = false, SetupPB = { 51260, 51261, 51262, 51263 } }
 }
 
+local TheKortzCenterHeist = {
+	Stat = { Robbery = "MPX_K26_ROBBERY_PROG", General = "MPX_K26_GENERAL_BS", Scoping = "MPX_K26_SCOPING_BS", POI = "MPX_K26_POI_BS" , Stolen = "MPX_K26_STOLENLAST_BS" },
+	Difficulty = { HardMode = false, DifficultyBIT = 28 },
+	S_WeakGuards = { Setup = false, SetupBIT = 31 },
+	Setups = {
+		{ Setup = false, Label = "Scope Out Kortz Center",	SetupBIT = 0 }, -- S_ScopeOutKortz
+		{ Setup = false, Label = "Alpha Mail Disguise",		SetupBIT = 1 }, -- S_AlphaMail
+		{ Setup = false, Label = "Hazmat Suit",				SetupBIT = 2 }, -- S_Hazmat
+		{ Setup = false, Label = "Staff Key Card",			SetupBIT = 3 }, -- S_KeyCard
+		{ Setup = false, Label = "Tactical Equipment",		SetupBIT = 4 }, -- S_Equipment
+		{ Setup = false, Label = "Hacking Device",			SetupBIT = 5 }, -- S_HackingDevice
+		{ Setup = false, Label = "Access Code",				SetupBIT = 6 }, -- S_AccessCode
+		{ Setup = false, Label = "Unmarked Weapons",		SetupBIT = 7, Setup2BIT = { 9, 10, 11 } }, -- S_UnmarkedWps
+		{ Setup = false, Label = "Armored Caracara",		SetupBIT = 8 }, -- S_Caracara
+		{ Setup = false, Label = "Annihilator Stealth",		SetupBIT = 9 }, -- S_Anihilator
+		{ Setup = false, Label = "Manchez",					SetupBIT = 10, Setup2BIT = { 17, 18, 19, 20 } }, -- S_Manchez
+		{ Setup = false, Label = "EMP Charges",				SetupBIT = 11, Setup2BIT = { 8 } }, -- S_Emp
+		{ Setup = false, Label = "Guard Shipments",			SetupBIT = 12 }, -- S_GuardShipments
+		{ Setup = false, Label = "Guard Routes",			SetupBIT = 13, Setup2BIT = { 5 } }, -- S_GuardRoutes
+		{ Setup = false, Label = "Glass Cutter",			SetupBIT = 14, Setup2BIT = { 6 } }, -- S_GlassCutter
+		{ Setup = false, Label = "Power Drills",			SetupBIT = 15, Setup2BIT = { 7 } }, -- S_PowerDrills
+	},
+	Others = {
+		{ Label = "Vault Keypad",			SetupBIT = 4 },
+		{ Label = "Staff Entrance",			SetupBIT = 12 },
+		{ Label = "Skylight",				SetupBIT = 13 },
+		{ Label = "Loading Bay",			SetupBIT = 14 },
+		{ Label = "Sewer",					SetupBIT = 15 },
+		{ Label = "Manhole Key Location",	SetupBIT = 16 },
+		{ Label = "Advanced Avionics",		SetupBIT = 23 },
+		{ Label = "Manhole Key",			SetupBIT = 27 },
+	},
+	K26_Refresh = function() if scripts.is_active("kortz_planning") then ScriptLocal("kortz_planning", 599):set_int(2) end end,
+	ChildRes = 162
+}
+
+local BountyTargets = {
+	Target = 0,
+	TargetStats = { MostWantedTargetPI = stats.get_packed_int(19014) },
+	TargetMission = {
+		{ 0, "Arcade" },
+		{ 1, "CCTV" },
+		{ 2, "Clubhouse" },
+		{ 3, "Mansion Intimidation" },
+		{ 4, "Prison Bus" },
+		{ 5, "Bank Robbery" },
+	},
+	TargetCategory = {
+		[0] = { "Beau Duggan",	"Bill Duggan",     "Hunter Duggan" },
+		[1] = { "Lil Prince",	"Xavier Fremond",  "Jalen Kennedy" },
+		[2] = { "Rylee Rose",	"Serenity Pierce", "Angel Kenney" },
+		[3] = { "Sabrina Gray",	"India Wood",      "Brigitte Foster" },
+		[4] = { "Cook Kenzie",	"Marquel Green",   "Colby Wright" },
+		[5] = { "Ricky Ji",		"Tommy Lim",       "LJ Ha" }
+	},
+	MostWantedTarget = {
+		{ 0, "Grace Whitney"  },
+		{ 1, "Chaz Lieberman" },
+		{ 2, "Leroy O'Neil"   },
+		{ 3, "Brock Thompson" },
+		{ 4, "Cleo Song"      },
+		{ 5, "Omar Garcia"    }
+	},
+	BailOffice_Refresh = function() if scripts.is_active("appbailoffice") then scripts.start_new_script("appbailoffice", 4592) end end,
+	ChildRes = 250
+}
+
+local FIB_File = {
+	Files = {
+		{ 0, "The Black Box File" },
+		{ 1, "The Brute Force File" },
+		{ 2, "The Fine Art File" },
+		{ 3, "The Project Breakaway File" },
+		{ 4, "None" }
+	},
+	Finish = {
+		{ ScriptName = "fm_content_hacker_cargo_finale", Local1 = 7823 + 1319, Local2 = 7657 + 1 },
+		{ ScriptName = "fm_content_hacker_zancudo_fin",	 Local1 = 8657 + 1182, Local2 = 8537 + 1 },
+		{ ScriptName = "fm_content_hacker_house_finale", Local1 = 8267 + 1192, Local2 = 8123 + 1 },
+		{ ScriptName = "fm_content_hacker_whistle_fin",	 Local1 = 6782 + 1176, Local2 = 6616 + 1 }
+	},
+	HackerDen_Refresh = function() scripts.start_new_script("apphackerden", 4592) end
+}
+
+local SALV23_Robbery = {
+	Name = {
+		{ 0, "The Cargo Ship Robbery" },
+		{ 1, "The Gangbanger Robbery" },
+		{ 2, "The Duggan Robbery" },
+		{ 3, "The Podium Robbery" },
+		{ 4, "The McTony Robbery" }
+	},
+	Slot = {
+		[0] = 1152433341,
+		[1] = 852564222,
+		[2] = 552662330
+	},
+	ClaimableVeh = {
+		-1700733442,
+		-1547046832,
+		1830093543
+	},
+	Finish = {
+		{ ScriptName = "fm_content_vehrob_cargo_ship",	 Local1 = 7372 + 1250, Local2 = 7227 + 1 },
+		{ ScriptName = "fm_content_vehrob_police",		 Local1 = 9183 + 1306, Local2 = 9050 + 1 },
+		{ ScriptName = "fm_content_vehrob_arena",		 Local1 = 8073 + 1315, Local2 = 7953 + 1 },
+		{ ScriptName = "fm_content_vehrob_casino_prize", Local1 = 9377 + 1259, Local2 = 9235 + 1 },
+		{ ScriptName = "fm_content_vehrob_submarine",	 Local1 = 6420 + 1160, Local2 = 6259 + 1 },
+		{ ScriptName = "fm_content_tow_truck_work",	 	 Local1 = 1885 + 93,   Local2 = 1828 + 1 }
+	},
+	SALV23_Refresh = function() if scripts.is_active("vehrob_planning") then ScriptLocal("vehrob_planning", 547):set_int(2) end end,
+	Lift = 1882779 + 4,
+	TruckCD = 1521767918,
+	ChildRes = 250
+}
+
+local MinPayoutContactMiss = {
+	MMpayout = 0,
+	Tunables = {
+		{ hash = -578005226, 	val = 1 },
+		{ hash = 1957048982, 	val = 1 },
+		{ hash = 1424087600, 	val = 1 },
+		{ hash = 595756597,  	val = 1 },
+		{ hash = -150996699, 	val = 1 },
+		{ hash = -1592895685,	val = 1 },
+		{ hash = -892967027, 	val = 1 },
+		{ hash = -181908601, 	val = 1 },
+		{ hash = -1317337001,	val = 1 },
+		{ hash = 1225778387, 	val = 1 },
+		{ hash = -658150922, 	val = 1 },
+		{ hash = -1817092145,	val = 1 },
+		{ hash = 2099720891, 	val = 1 },
+		{ hash = 876224738,  	val = 1 },
+		{ hash = 50165909,   	val = 1 },
+		{ hash = -933403272, 	val = 0 },
+		{ hash = -934443667, 	val = 0 },
+		{ hash = -560105293, 	val = 0 },
+		{ hash = 1196094314, 	val = 0 },
+		{ hash = 1239120893, 	val = 0 },
+		{ hash = -397217433, 	val = 0 },
+		{ hash = 103951584,  	val = 0 },
+		{ hash = -953814516, 	val = 0 },
+		{ hash = -1917315321,	val = 0 },
+		{ hash = 240235414,  	val = 0 },
+		{ hash = 878296414,  	val = 0 },
+		{ hash = 1047150785, 	val = 0 },
+		{ hash = 1116015813,	val = 1 },
+	}
+}
+
+local UnnaturalSelection = {
+	UGC = { Global = 1845347 + 151, Cayo = "4bpPLwLW7UKal3bHdKhRHw" },
+	Finish = {
+		Classic = { ScriptName = "fm_horde_controler", Base = 11333 },
+		New =  { ScriptName = "fm_survival_controller", Base = 10769, Endless = 560 },
+		WaveOnly = false,
+		ToWave = 1,
+	},
+	Idle = 2699645,
+	ChildRes = 130
+}
+
+commandmgr.add_list_command("salv23currobbery", "", "", SALV23_Robbery.Name, stats.get_int("MPX_SALV23_VEH_ROB"), function()
+	stats.set_int("MPX_SALV23_VEH_ROB", commandmgr.get_command("salv23currobbery"):get_value())
+end)
+
+for robberyslot = 0, 2 do
+	commandmgr.add_list_command("salv23robbery"..robberyslot, "Slot "..robberyslot + 1, "", SALV23_Robbery.Name, tunables.get_int(SALV23_Robbery.Slot[robberyslot]), function()
+		tunables.set_int(SALV23_Robbery.Slot[robberyslot], commandmgr.get_command("salv23robbery"..robberyslot):get_value())
+	end)
+end
+
+for bountymission = 0, 2 do
+	commandmgr.add_list_command("bountytargetmission"..bountymission, "Mission##"..bountymission, "", BountyTargets.TargetMission, -1, function()
+		stats.set_int("MPX_BOUNTY24_STD_TARG_MIS_"..bountymission, commandmgr.get_command("bountytargetmission"..bountymission):get_value())
+	end)
+end
+
+commandmgr.add_list_command("mwtarget", "Target", "", BountyTargets.MostWantedTarget, BountyTargets.TargetStats.MostWantedTargetPI, function()
+	stats.set_packed_int(19014, commandmgr.get_command("mwtarget"):get_value())
+end)
+
 commandmgr.add_list_command("cbr_approach", "Approach", "", CluckinBellRaid.Approach, CluckinBellRaid.GetSetupStats.ApproachPB, function()
 	if commandmgr.get_command("cbr_approach"):get_value() == 1 then
 		stats.set_packed_bool(42108, true)
@@ -3159,40 +3480,41 @@ commandmgr.add_list_command("cbr_getawayvehicle", "Getaway Vehicle", "", Cluckin
 	stats.set_packed_int(51023, commandmgr.get_command("cbr_getawayvehicle"):get_value())
 end)
 
-local FIB_File = {
-	{ 0,  "The Black Box File" },
-	{ 1,  "The Brute Force File" },
-	{ 2,  "The Fine Art File" },
-	{ 3,  "The Project Breakaway File" },
-	{ 4,  "None" }
-}
-
-commandmgr.add_list_command("fib_files", "Files", "", FIB_File, stats.get_int("MPX_HACKER24_ACTIVE_ROB"), function()
+commandmgr.add_list_command("fib_files", "Files", "", FIB_File.Files, stats.get_int("MPX_HACKER24_ACTIVE_ROB"), function()
 	stats.set_int("MPX_HACKER24_ACTIVE_ROB", commandmgr.get_command("fib_files"):get_value())
-	local selected_fibfile = FIB_File[stats.get_int("MPX_HACKER24_ACTIVE_ROB") + 1][2]
+	local selected_fibfile = FIB_File.Files[stats.get_int("MPX_HACKER24_ACTIVE_ROB") + 1][2]
 	if commandmgr.get_command("fib_files"):get_value() ~= 4 then
-		notify.success("TinkerScript - FIB File", "File Selected: "..selected_fibfile, 3000)
+		notify.success("TinkerScripts - FIB File", "File Selected: "..selected_fibfile, 3000)
 	else
 		stats.set_int("MPX_HACKER24_ACTIVE_ROB", -1)
 	end
 	STATS.STAT_SAVE(0, 0, 3, 0)
 end)
 
-local function HackerDen_Reload()
-	scripts.start_new_script("apphackerden", 4592)
+commandmgr.add_looped_command("minmissionpayout", "Min. Mission Payout", "Applies only to Contact Missions and Classic Survivals.", function()
+	tunables.set_int(-268882405, MinPayoutContactMiss.MMpayout)
+	tunables.set_int(1312791102, MinPayoutContactMiss.MMpayout)
+	tunables.set_int(-1244930138, MinPayoutContactMiss.MMpayout / 100)
+
+	for _, min in ipairs(MinPayoutContactMiss.Tunables) do
+		tunables.set_float(min.hash, min.val)
+	end
+end)
+
+commandmgr.add_looped_command("survivals_noidlekick", "No Idle Kick", "Prevents you from being kicked while idling in Survivals.", function()
+	ScriptGlobal(UnnaturalSelection.Idle):set_int(INT_MAX)
+end, nil, function()
+	ScriptGlobal(UnnaturalSelection.Idle):set_int(-1)
+end)
+
+---|| Recovery + (Unlocks) ||------------------------------------------------------------------------------
+
+commandmgr.add_list_command("achievementsonly", "Achievements", "", Rplus_Achievements, -1, nil)
+commandmgr.add_list_command("rprank", "Rank", "", Rplus_Ranks.ToMax, 1, nil)
+
+for i = 0, 4 do
+	commandmgr.add_list_command("crewrank"..i, "Slot ".. i + 1, "", Rplus_Ranks.ToMax, 1, nil)
 end
-
----|| Recovery + (Content Unlocks) ||------------------------------------------------------------------------------
-
-local Rplus_Config = {
-	AW_tier = false,
-	AW_stats = false,
-	LSCM_rep = false,
-	FacePaint_Opacity = 1.0,
-	EyesColor = 1,
-	ComboToFile = false,
-	FiletoChar = false
-}
 
 ---|| Recovery + (Tunables) ||------------------------------------------------------------------------------
 
@@ -3200,24 +3522,24 @@ commandmgr.add_bool_command("Tunaggle_Independence", "Independence Day", "Enable
 	for _, independenceday in ipairs (RplusTuna_IndependenceDay) do
 		tunables.set_bool(independenceday.Tunable, independenceday.tunaVal)
 	end
-	notify.success("TinkerScript - Independence Day", "Independence Day Content enabled!", 3000)
-end,function()
+	notify.success("TinkerScripts - Independence Day", "Independence Day Content enabled!", 3000)
+end, function()
 	for _, independenceday in ipairs (RplusTuna_IndependenceDay) do
 		tunables.set_bool(independenceday.Tunable, not independenceday.tunaVal)
 	end
-	notify.info("TinkerScript - Independence Day", "Independence Day Content disabled.", 3000)
+	notify.info("TinkerScripts - Independence Day", "Independence Day Content disabled.", 3000)
 end)
 
 commandmgr.add_bool_command("Tunaggle_Halloween", "Halloween", "Enables Halloween Content", false, function()
 	for _, halloween in ipairs (RplusTuna_Halloween) do
 		tunables.set_bool(halloween.Tunable, halloween.tunaVal)
 	end
-	notify.success("TinkerScript - Halloween", "Halloween Content enabled!", 3000)
-end,function()
+	notify.success("TinkerScripts - Halloween", "Halloween Content enabled!", 3000)
+end, function()
 	for _, halloween in ipairs (RplusTuna_Halloween) do
 		tunables.set_bool(halloween.Tunable, not halloween.tunaVal)
 	end
-	notify.info("TinkerScript - Halloween", "Halloween Content disabled.", 3000)
+	notify.info("TinkerScripts - Halloween", "Halloween Content disabled.", 3000)
 end)
 
 local xmas_snow = false
@@ -3225,12 +3547,12 @@ commandmgr.add_bool_command("Tunaggle_Xmas", "Christmas", "Enables Christmas Con
 	for _, xmas in ipairs (RplusTuna_Christmas) do
 		tunables.set_bool(xmas.Tunable, xmas.tunaVal)
 	end
-	notify.success("TinkerScript - Christmas", "Christmas Content enabled!", 3000)
-end,function()
+	notify.success("TinkerScripts - Christmas", "Christmas Content enabled!", 3000)
+end, function()
 	for _, xmas in ipairs (RplusTuna_Christmas) do
 		tunables.set_bool(xmas.Tunable, not xmas.tunaVal)
 	end
-	notify.info("TinkerScript - Christmas", "Christmas Content disabled.", 3000)
+	notify.info("TinkerScripts - Christmas", "Christmas Content disabled.", 3000)
 end)
 
 ---|| Recovery + (Money) ||------------------------------------------------------------------------------
@@ -3252,19 +3574,18 @@ commandmgr.add_list_command("humcanv_fp2list", "##fp2list", "", HumanC_FP2, stat
 	stats.set_packed_int(3942, commandmgr.get_command("humcanv_fp2list"):get_value())
 end)
 
-
 TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.TextDisabled("Please join a freemode session.") return end
 
 	ImGui.BeginTabBar("recoplus") -- Learned tabs ;D
-	if ImGui.BeginTabItem("Safe Cracker") then
+	if ImGui.BeginTabItem("Mission Master") then
 
 		ImGui.BeginGroup()
 		ImGui.BeginChild("##ineedanameforthis", 424, 584, 1)
 		CenteredText("Heists", false, true)
 
 		--ImGui.PushStyleVar(ImGuiStyleVar.TabBarBorderSize, 0) -- issues/4859 ocornut
-		ImGui.BeginTabBar("Heists"--[[, ImGuiTabBarFlags.NoTabListScrollingButtons + ImGuiTabBarFlags.FittingPolicyScroll]])
-		if ImGui.BeginTabItem("Cluckin' Bell Raid") then
+		ImGui.BeginTabBar("Heists", ImGuiTabBarFlags.NoTabListScrollingButtons + ImGuiTabBarFlags.FittingPolicyScroll)
+		if ImGui.BeginTabItem("Cluckin' Bell Farm Raid") then
 
 			ImGui.Text("Cluckin' Raider")ImGui.Separator()ImGui.Spacing()
 			ImGui.BeginDisabled(not STREAMING.IS_IPL_ACTIVE("cs1_02_cf_onmission4"))
@@ -3292,7 +3613,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 			ImGui.SameLine() ImGui.BeginGroup()
 			if ImGui.Button("Crack Cluckin' Bell Safe", 200) then
 				script.run_in_callback(CrackCB)
-			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Breaks into the safe") end
+			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Breaks into the safe.") end
 
 			if ImGui.Button("Teleport to Office Keys##cbr", 200) then
 				TpToEntity(-1423372530)
@@ -3385,7 +3706,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				if ScriptLocal("fm_mission_controller_v3", 57250 + 1):get_int() == 17718273 then
 					TS_KortzFinish()
 				else
-					notify.error("TinkerScript - Kortz Center Cracker", "You must be inside the building to use Instant-Finish!", 3000)
+					notify.error("TinkerScripts - Kortz Center Cracker", "You must be inside the building to use Instant-Finish!", 3000)
 				end
 			end
 
@@ -3507,53 +3828,56 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 	ImGui.BeginGroup()
 	ImGui.BeginChild("##missionskips", 406, 584, 1) -- Almost perfectly aligned with last category (by chance)
 
-	CenteredText("Extras", false, true) -- Previously "Other Missions", I really don't know what to names these things
+	CenteredText("Mission Setups & Skips", false, true) if ImGui.IsItemHovered() then ImGui.SetTooltip("Only those that can't be replayed through the Pause Menu") end -- Previously "Other Missions", I really don't know what to names these things
 
-	ImGui.Text("Mission Skips & Setups") if ImGui.IsItemHovered() then ImGui.SetTooltip("Only those that can't be replayed through the Pause Menu") end ImGui.Separator()ImGui.Spacing()
+		ImGui.Spacing()ImGui.SameLine(0, 3.8)
+		if ImGui.TreeNodeEx("Auto Shop Contract  ##"..nomoretreeplease, 8219) then
+			if ImGui.BeginChild("##autoshopchild", 285, 162, 1) then --, 144
+				local autoshop_contractfinale
+				if stats.get_int("MPX_TUNER_CURRENT") > -1 then
+					autoshop_contractfinale = AutoShop_Contract.Contract[stats.get_int("MPX_TUNER_CURRENT") + 1][3]
+					if ImGui.Button("Skip: "..autoshop_contractfinale, -1) then
+						stats.set_int("MPX_TUNER_GEN_BS", -1)
+						notify.success("TinkerScripts - Auto Shop Skip", "Success! All preps skipped.\nNext mission: "..autoshop_contractfinale, 3000)
+					end
+				else
+					CenteredText("No Active Contract", false, false)
+				end
+				ImGui.Separator()
+				commandmgr.get_command("autoshop_contracts"):draw()
+				if ImGui.Button("Refresh Board") then AutoShop_Contract.AutoShop_Refresh() end
+				if ImGui.Button("Teleport to Auto Shop") then
+					TpToBlip(false, Blips.Property.AUTO_SHOP_PROPERTY.ID, false)
+				end
+				if ImGui.Button("Instant Finish") then
+					Fmmc2020Finish()
+				end
+			end ImGui.EndChild()
+		end
 
 		ImGui.Spacing()ImGui.SameLine(0, 3.8)
 		if ImGui.TreeNodeEx("Dr. Dre Contract  ##"..nomoretreeplease, 8219) then
 			if ImGui.BeginChild("##drecontract", 210, 104, 1) then
 				if ImGui.Button("Skip: Don't F* With Dre", -1) then
 					stats.set_int("MPX_FIXER_STORY_BS", 4095)
-					notify.success("TinkerScript - Dr. Dre Contract Skip", "Success! All preps skipped.\nNext mission: Don't F* With Dre", 3000)
+					notify.success("TinkerScripts - Dr. Dre Contract Skip", "Success! All preps skipped.\nNext mission: Don't F* With Dre", 3000)
 				end
 				ImGui.Separator()
-				if ImGui.Button("Instant Finish") then
-					Fmmc2020Finish()
-				end
 				if ImGui.Button("Teleport to Agency") then
 					TpToBlip(false, Blips.Property.AGENCY.ID, false)
 				end
-			end ImGui.EndChild()
-		end
-
-		ImGui.Spacing()ImGui.SameLine(0, 3.8)
-		if ImGui.TreeNodeEx("Auto Shop Contract  ##"..nomoretreeplease, 8219) then
-			if ImGui.BeginChild("##autoshopchild", 320, 134, 1) then
-				local autoshop_contractfinale
-				if stats.get_int("MPX_TUNER_CURRENT") > -1 then
-					autoshop_contractfinale = AutoShop_Contract[stats.get_int("MPX_TUNER_CURRENT") + 1][3]
-					if ImGui.Button("Skip: "..autoshop_contractfinale, -1) then
-						stats.set_int("MPX_TUNER_GEN_BS", -1)
-						notify.success("TinkerScript - Auto Shop Skip", "Success! All preps skipped.\nNext mission: "..autoshop_contractfinale, 3000)
-					end
-					ImGui.Separator()
-				end
-				commandmgr.get_command("autoshop_contracts"):draw()
-				if ImGui.Button("Reload Board") then AutoShop_Reload() end
-				if ImGui.Button("Teleport to Auto Shop") then
-					TpToBlip(false, Blips.Property.AUTO_SHOP_PROPERTY.ID, false)
+				if ImGui.Button("Instant Finish") then
+					Fmmc2020Finish()
 				end
 			end ImGui.EndChild()
 		end
 
 		ImGui.Spacing()ImGui.SameLine(0, 3.8)
-		if ImGui.TreeNodeEx("Cluckin' Bell Raid  ##"..nomoretreeplease, 8219) then
+		if ImGui.TreeNodeEx("Cluckin' Bell Farm Raid  ##"..nomoretreeplease, 8219) then
 			if ImGui.BeginChild("##cbrchild", 390, 192, 1) then
 				if ImGui.Button("Skip: Scene of the Crime", -1) then
 					stats.set_int("MPX_SALV23_INST_PROG", 31)
-					notify.success("TinkerScript - Cluckin' Bell Raid Skip", "Success! All preps skipped.\nNext mission: Scene of the Crime", 3000)
+					notify.success("TinkerScripts - Cluckin' Bell Farm Raid Skip", "Success! All preps skipped.\nNext mission: Scene of the Crime", 3000)
 				end
 				ImGui.Separator()
 				commandmgr.get_command("cbr_approach"):draw()
@@ -3575,48 +3899,182 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 						LocalSetBit(ScriptLocal("fm_content_smuggler_ops", 7743 + 1), 1, 11)
 					end
 				end
-				-- Cooldowns can be skipped but finishing a mission will triger a transaction failed screen
+				-- Cooldowns can be skipped but finishing a mission will trigger a transaction failed screen
 			end ImGui.EndChild()
 		end
 
 		ImGui.Spacing()ImGui.SameLine(0, 3.8)
-		if ImGui.TreeNodeEx("FIB Files  ##fibsetups"..nomoretreeplease, 8219) then
-			if ImGui.BeginChild("#fibchild#", 320, 134, 1) then
+		if ImGui.TreeNodeEx("Salvage Yard ##"..nomoretreeplease, 8219) then
+			if ImGui.BeginChild("##salv23child", 288, SALV23_Robbery.ChildRes, 1) then
+				SALV23_Robbery.ChildRes = 250
+				if stats.get_int("MPX_SALV23_VEH_ROB") ~= -1 then
+					if ImGui.Button("Skip: "..SALV23_Robbery.Name[stats.get_int("MPX_SALV23_VEH_ROB") + 1][2], -1) then
+						stats.set_int("MPX_SALV23_GEN_BS", -1)
+						stats.set_int("MPX_SALV23_SCOPE_BS", -1)
+						stats.set_int("MPX_SALV23_FM_PROG", -1)
+					end
+				elseif stats.get_int("MPX_SALV23_VEH_ROB") == -1 and stats.get_masked_bool("MPX_SALV23_GEN_BS", 0) == false then
+					CenteredText("No Active Robbery", false, false)
+				elseif stats.get_int("MPX_SALV23_VEH_ROB") == -1 and stats.get_masked_bool("MPX_SALV23_GEN_BS", 0) == true then
+					if ImGui.Button("Fix Salvage Yard PC", -1) then
+						stats.set_int("MPX_SALV23_GEN_BS", -2123778)
+						notify.success("TinkerScripts - Salvage Yard", "Salvage Yard PC has been fixed! Please leave and enter The Salvage Yard again to see the changes.")
+					end
+				end
+				ImGui.Separator()
+				if stats.get_int("MPX_SALV23_VEH_ROB") ~= -1 then
+					ImGui.Spacing()ImGui.SameLine(0, 3.8)
+					if ImGui.TreeNodeEx("Current Robbery ##"..nomoretreeplease, 8219) then
+						SALV23_Robbery.ChildRes = SALV23_Robbery.ChildRes + 62
+						commandmgr.get_command("salv23currobbery"):draw()
+						if ImGui.Button("Clear Current Robbery") then
+							for i = 0, 2 do
+								if stats.get_int("MPX_SALV23_VEHROB_STATUS"..i) >= 1 then
+									stats.set_int("MPX_SALV23_VEHROB_STATUS"..i, 0)
+									stats.set_int("MPX_SALV23_VEH_ROB", -1)
+									stats.set_int("MPX_SALV23_GEN_BS", -2123778)
+								end
+							end
+						end
+						ImGui.Separator()
+					end
+				end
+				ImGui.Spacing()ImGui.SameLine(0, 3.8)
+				if ImGui.TreeNodeEx("Robbery Slots ##"..nomoretreeplease, 8219) then
+					SALV23_Robbery.ChildRes = SALV23_Robbery.ChildRes + 148
+					for robslots = 0, 2 do
+						commandmgr.get_command("salv23robbery"..robslots):draw()
+					end
+					if ImGui.Button("Reset Vehicles Status") then
+						stats.set_int("MPX_SALV23_VEHROB_STATUS0", 0)
+						stats.set_int("MPX_SALV23_VEHROB_STATUS1", 0)
+						stats.set_int("MPX_SALV23_VEHROB_STATUS2", 0)
+					end
+					if ImGui.Button("Set All Vehicles as Claimable") then
+						for _, salv23slot in ipairs(SALV23_Robbery.ClaimableVeh) do
+							tunables.set_int(salv23slot, 1)
+						end
+					end
+					ImGui.Separator()
+				end
+				if ImGui.Button("Refresh Planning PC") then
+					SALV23_Robbery.SALV23_Refresh()
+				end
+				if ImGui.Button("Teleport to Salvage Yard") then
+					TpToBlip(false, Blips.Property.SALVAGE_YARD.ID, false)
+				end
+				if ImGui.Button("Instant Salvage Parts") then
+					if stats.get_int("MPX_MPSV_MODEL_SALVAGE_LIFT1") ~= 0 then ScriptGlobal(SALV23_Robbery.Lift + 1):set_int(1) end
+					if stats.get_int("MPX_MPSV_MODEL_SALVAGE_LIFT2") ~= 0 then ScriptGlobal(SALV23_Robbery.Lift + 2):set_int(1) end
+				end
+				if ImGui.Button("Remove Tow Truck Cooldown") then
+					tunables.set_int(SALV23_Robbery.TruckCD, 1)
+				end
+				if ImGui.Button("Instant Finish") then
+					for _, FinishFile in ipairs(SALV23_Robbery.Finish) do
+						if scripts.is_active(FinishFile.ScriptName) then
+							if FinishFile.ScriptName ~= "fm_content_tow_truck_work" then
+								ScriptLocal(FinishFile.ScriptName, FinishFile.Local1):set_int(1)
+							else
+								ScriptLocal(FinishFile.ScriptName, FinishFile.Local1):set_int(3)
+							end
+							LocalSetBit(ScriptLocal(FinishFile.ScriptName, FinishFile.Local2), 1, 11)
+						end
+					end
+				end if ImGui.IsItemHovered() then ImGui.SetTooltip("Instant Finish Robberies and Tow Truck Service Missions.") end
+			end ImGui.EndChild()
+		end
+
+		ImGui.Spacing()ImGui.SameLine(0, 3.8)
+		if ImGui.TreeNodeEx("Bounty Targets ##"..nomoretreeplease, 8219) then
+			if ImGui.BeginChild("##bountytargetschild", 300, BountyTargets.ChildRes, 1) then
+				BountyTargets.ChildRes = 250
+				if ImGui.Button("Skip: Jenette Dialogues", -1) then
+					stats.set_packed_bool_range(51192, 51195, true)
+					notify.success("TinkerScripts - Jenette The Mutette", "Success! Jenette dialogues have been skipped!")
+				end if ImGui.IsItemHovered() then ImGui.SetTooltip("Skips Jenette dialogues for all current targets.") end
+				ImGui.Separator()
+				for bounty = 0, 2 do
+					ImGui.Spacing()ImGui.SameLine(0, 3.8)
+					if ImGui.TreeNodeEx("Bounty Target "..bounty + 1 .." ##"..nomoretreeplease, 8219) then
+						BountyTargets.ChildRes = BountyTargets.ChildRes + 60
+						if commandmgr.get_command("bountytargetmission"..bounty):get_value() == -1 then commandmgr.get_command("bountytargetmission"..bounty):set_value(stats.get_int("MPX_BOUNTY24_STD_TARG_MIS_"..bounty)) end
+						commandmgr.get_command("bountytargetmission"..bounty):draw()
+						ImGui.SetNextItemWidth(189)
+						BountyTargets.Target, targetchanged = ImGui.Combo("Target##"..bounty, stats.get_int("MPX_BOUNTY24_STD_TARG_TAR_"..bounty), BountyTargets.TargetCategory[commandmgr.get_command("bountytargetmission"..bounty):get_value()], 3)
+						if targetchanged then
+							stats.set_int("MPX_BOUNTY24_STD_TARG_TAR_"..bounty, BountyTargets.Target)
+						end
+					end
+				end
+				ImGui.Spacing()ImGui.SameLine(0, 3.8)
+				if ImGui.TreeNodeEx("Most Wanted Target ##"..nomoretreeplease, 8219) then
+					BountyTargets.ChildRes = BountyTargets.ChildRes + 30
+					commandmgr.get_command("mwtarget"):draw()
+				end
+				if ImGui.Button("Refresh PC") then BountyTargets.BailOffice_Refresh() end
+				if ImGui.Button("Teleport to Bail Office") then
+					TpToBlip(false, Blips.Property.BAIL_BONDS_OFFICE.ID, false)
+				end
+				if ImGui.Button("Instant Finish") then
+					if scripts.is_active("fm_content_bounty_targets") then
+						ScriptLocal("fm_content_bounty_targets", 7289 + 1284):set_int(1)
+						LocalSetBit(ScriptLocal("fm_content_bounty_targets", 7150 + 1), 1, 11)
+					end
+					Fmmc2020Finish()
+				end
+			end ImGui.EndChild()
+		end
+
+		ImGui.Spacing()ImGui.SameLine(0, 3.8)
+		if ImGui.TreeNodeEx("FIB Files ##fibsetups"..nomoretreeplease, 8219) then
+			if ImGui.BeginChild("#fibchild#", 288, 162, 1) then
 				local fib_filefinale
 				if stats.get_int("MPX_HACKER24_ACTIVE_ROB") > -1 then
-					fib_filefinale = FIB_File[stats.get_int("MPX_HACKER24_ACTIVE_ROB") + 1][2]
+					fib_filefinale = FIB_File.Files[stats.get_int("MPX_HACKER24_ACTIVE_ROB") + 1][2]
 					if ImGui.Button("Skip: "..fib_filefinale, -1) then
 						stats.set_int("MPX_HACKER24_GEN_BS", -1)
-						notify.success("TinkerScript - FIB File Skip", "Success! All preps skipped.\nNext mission: "..fib_filefinale, 3000)
+						notify.success("TinkerScripts - FIB File Skip", "Success! All preps skipped.\nNext mission: "..fib_filefinale, 3000)
 					end
 					ImGui.Separator()
 				end
 				commandmgr.get_command("fib_files"):draw()
-				if ImGui.Button("Reload PC") then HackerDen_Reload() end
+				if ImGui.Button("Refresh PC") then FIB_File.HackerDen_Refresh() end
 				if ImGui.Button("Teleport to Garment Factory") then
 					TpToBlip(false, Blips.Property.GARMENT_FACTORY.ID, false)
+				end
+				if ImGui.Button("Instant Finish") then
+					for _, FinishFile in ipairs(FIB_File.Finish) do
+						if scripts.is_active(FinishFile.ScriptName) then
+							ScriptLocal(FinishFile.ScriptName, FinishFile.Local1):set_int(1)
+							LocalSetBit(ScriptLocal(FinishFile.ScriptName, FinishFile.Local2), 1, 11)
+						end
+					end
 				end
 			end ImGui.EndChild()
 		end
 
 		ImGui.Spacing()ImGui.SameLine(0, 3.8)
 		if ImGui.TreeNodeEx("Oscar Guzman Flies Again  ##"..nomoretreeplease, 8219) then
-			if ImGui.BeginChild("##ogfachild", 320, 192, 1) then
+			if ImGui.BeginChild("##ogfachild", 320, 220, 1) then
 				if ImGui.Button("Skip: The Titan Job", -1) then
 					stats.set_int("MPX_HACKER24_INST_BS", -1)
-					notify.success("TinkerScript - Oscar Guzman Skip", "Success! All preps skipped.\nNext mission: The Titan Job", 3000)
+					notify.success("TinkerScripts - Oscar Guzman Skip", "Success! All preps skipped.\nNext mission: The Titan Job", 3000)
 				end
 				ImGui.Separator()
-				OzcarGuzmanFliesAgain.Difficulty.HardMode = ImGui.Checkbox("Hard Mode", OzcarGuzmanFliesAgain.Difficulty.HardMode) -- I completed this part withour errors on first try :')
+				OzcarGuzmanFliesAgain.Difficulty.HardMode, ogfamode = ImGui.Checkbox("Hard Mode", stats.get_packed_bool(OzcarGuzmanFliesAgain.Difficulty.DifficultyPB)) -- I completed this part withour errors on first try :')
 				OzcarGuzmanFliesAgain.S_Mogul.Setup = ImGui.Checkbox("Setup: Mogul", OzcarGuzmanFliesAgain.S_Mogul.Setup)
 				OzcarGuzmanFliesAgain.S_IronMule.Setup = ImGui.Checkbox("Setup: Iron Mule", OzcarGuzmanFliesAgain.S_IronMule.Setup)
 				OzcarGuzmanFliesAgain.S_Ammunition.Setup = ImGui.Checkbox("Setup: Ammunition", OzcarGuzmanFliesAgain.S_Ammunition.Setup)
-				stats.set_packed_bool(OzcarGuzmanFliesAgain.Difficulty.DifficultyPB, OzcarGuzmanFliesAgain.Difficulty.HardMode)
+				if ogfamode then stats.set_packed_bool(OzcarGuzmanFliesAgain.Difficulty.DifficultyPB, OzcarGuzmanFliesAgain.Difficulty.HardMode) end
 				for _, pbstat in ipairs(OzcarGuzmanFliesAgain.S_Mogul.SetupPB) do stats.set_packed_bool(pbstat, OzcarGuzmanFliesAgain.S_Mogul.Setup) end
 				for _, pbstat in ipairs(OzcarGuzmanFliesAgain.S_IronMule.SetupPB) do stats.set_packed_bool(pbstat, OzcarGuzmanFliesAgain.S_IronMule.Setup) end
 				for _, pbstat in ipairs(OzcarGuzmanFliesAgain.S_Ammunition.SetupPB) do stats.set_packed_bool(pbstat, OzcarGuzmanFliesAgain.S_Ammunition.Setup) end
 				if ImGui.Button("Teleport to McKenzie Field Hangar") then
 					TpToBlip(false, Blips.Property.FIELD_HANGAR.ID, false)
+				end
+				if ImGui.Button("Instant Finish") then
+					Fmmc2020Finish()
 				end
 			end ImGui.EndChild()
 		end
@@ -3626,7 +4084,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 			if ImGui.BeginChild("##knowayoutchild", 260, 104, 1) then
 				if ImGui.Button("Skip: A Clean Break", -1) then
 					stats.set_int("MPX_M25_AVI_MISSION_CURRENT", 4)
-					notify.success("TinkerScript - KnoWay Out Skip", "Success! All preps skipped.\nNext mission: A Clean Break", 3000)
+					notify.success("TinkerScripts - KnoWay Out Skip", "Success! All preps skipped.\nNext mission: A Clean Break", 3000)
 				end
 				ImGui.Separator()
 				if ImGui.Button("Teleport to Payphone") then
@@ -3638,15 +4096,159 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 			end ImGui.EndChild()
 		end
 
-		ImGui.Spacing()
+		ImGui.Spacing()ImGui.SameLine(0, 3.8)
+		if ImGui.TreeNodeEx("The Kortz Center Heist ##"..nomoretreeplease, 8219) then
+			if ImGui.BeginChild("##thek26child", 320, TheKortzCenterHeist.ChildRes, 1) then
+				TheKortzCenterHeist.ChildRes = 162
+
+				if ImGui.Button("Skip: All Preps", -1) then
+					stats.set_int(TheKortzCenterHeist.Stat.General, 266338303)
+					stats.set_int(TheKortzCenterHeist.Stat.Robbery, 65535)
+					stats.set_int(TheKortzCenterHeist.Stat.Scoping, -1)
+					stats.set_int(TheKortzCenterHeist.Stat.POI, -1)
+					TheKortzCenterHeist.K26_Refresh()
+				end
+
+				ImGui.Separator()
+
+				ImGui.Spacing()ImGui.SameLine(0, 3.8)
+				if ImGui.TreeNodeEx("Setups ##"..nomoretreeplease, 8219) then
+					TheKortzCenterHeist.ChildRes = TheKortzCenterHeist.ChildRes + 120
+
+					TheKortzCenterHeist.Difficulty.HardMode, k26mode = ImGui.Checkbox("Hard Mode", stats.get_masked_bool(TheKortzCenterHeist.Stat.General, 28))
+					TheKortzCenterHeist.S_WeakGuards.Setup, k26weakguards = ImGui.Checkbox("Weak Guards", stats.get_masked_bool(TheKortzCenterHeist.Stat.General, 31))
+
+					if k26mode then stats.set_masked_bool(TheKortzCenterHeist.Stat.General, TheKortzCenterHeist.Difficulty.DifficultyBIT, TheKortzCenterHeist.Difficulty.HardMode) end
+					if k26weakguards then stats.set_masked_bool(TheKortzCenterHeist.Stat.General, TheKortzCenterHeist.S_WeakGuards.SetupBIT, TheKortzCenterHeist.S_WeakGuards.Setup) end
+
+					for _, setupk26 in ipairs(TheKortzCenterHeist.Setups) do
+						setupk26.Setup, setupk26changed = ImGui.Checkbox(setupk26.Label, stats.get_masked_bool(TheKortzCenterHeist.Stat.Robbery, setupk26.SetupBIT))
+						if setupk26changed then
+							stats.set_masked_bool(TheKortzCenterHeist.Stat.Robbery, setupk26.SetupBIT, setupk26.Setup)
+							if setupk26.Setup2BIT ~= nil then
+								for _, bit in ipairs(setupk26.Setup2BIT) do
+									stats.set_masked_bool(TheKortzCenterHeist.Stat.General, bit, setupk26.Setup)
+								end
+							end
+						end
+					end
+
+					if ImGui.Button("Others") then
+						for _, setupothersk26 in ipairs(TheKortzCenterHeist.Others) do
+							stats.set_masked_bool(TheKortzCenterHeist.Stat.General, setupothersk26.SetupBIT, true)
+						end
+					end if ImGui.IsItemHovered() then ImGui.SetTooltip("Unlocks other setups:\nAll Entry Points,\nManhole Key,\nVault Keypad,\nAdvanced Avionics.") end
+				end
+
+				if ImGui.Button("Reset Stolen Targets") then
+					stats.set_int(TheKortzCenterHeist.Stat.Stolen, 0)
+				end if ImGui.IsItemHovered() then ImGui.SetTooltip("Removes \"On Loan\" signs.") end
+
+				if ImGui.Button("Refresh Board") then TheKortzCenterHeist.K26_Refresh() end
+				if ImGui.Button("Teleport to Mansion") then
+					TpToBlip(false, Blips.PROPERTY_MANSION_ART_HEIST, false)
+				end
+
+			end ImGui.EndChild()
+		end
+
+		ImGui.EndChild()
+		ImGui.EndGroup()
 
 		ImGui.Text("Misc")ImGui.Separator()ImGui.Spacing()
+		commandmgr.get_command("autoloot"):draw()
+
+		commandmgr.get_command("minmissionpayout"):draw()
+		if commandmgr.get_command("minmissionpayout"):get_value() then
+			ImGui.SameLine()
+			ImGui.SetNextItemWidth(140)
+			MinPayoutContactMiss.MMpayout = ImGui.SliderInt("Payout", MinPayoutContactMiss.MMpayout, 0, 100000)
+		end
+
+		ImGui.Spacing()
+		ImGui.SameLine(0, 3.8)
+		if ImGui.TreeNodeEx("Survivals ##"..nomoretreeplease, 8219) then
+			CustomChild(nil, "##survivalschild", 280, UnnaturalSelection.ChildRes, 1, function()
+				UnnaturalSelection.ChildRes = 130
+
+			if scripts.is_active(UnnaturalSelection.Finish.Classic.ScriptName) and ScriptLocal(UnnaturalSelection.Finish.Classic.ScriptName, UnnaturalSelection.Finish.Classic.Base + 5):get_int() ~= 0 then
+				local ClassicSurvival = UnnaturalSelection.Finish.Classic
+
+				if ImGui.Button("Start Wave") then
+					ScriptLocal(ClassicSurvival.ScriptName, ClassicSurvival.Base + 5):set_int(ScriptLocal(ClassicSurvival.ScriptName, ClassicSurvival.Base + 5):get_int() - 19999)
+				end ImGui.SameLine() commandmgr.get_command("survivals_noidlekick"):draw()
+
+				if ImGui.Button("Instant Finish") then
+					if not UnnaturalSelection.Finish.WaveOnly then ScriptLocal(ClassicSurvival.ScriptName, ClassicSurvival.Base + 1295):set_int(10) end
+					ScriptLocal(ClassicSurvival.ScriptName, ClassicSurvival.Base + 9):set_int(4)
+				end
+				ImGui.SameLine()
+				UnnaturalSelection.Finish.WaveOnly = ImGui.Checkbox("Wave Only", UnnaturalSelection.Finish.WaveOnly)
+
+				UnnaturalSelection.Finish.ToWave= ImGui.InputInt("Skip to Wave", UnnaturalSelection.Finish.ToWave)
+				ImGui.SameLine()
+				if ImGui.Button("Skip") then
+					ScriptLocal(ClassicSurvival.ScriptName, ClassicSurvival.Base + 1295):set_int(UnnaturalSelection.Finish.ToWave - 1)
+					ScriptLocal(ClassicSurvival.ScriptName, ClassicSurvival.Base + 9):set_int(4)
+				end if ImGui.IsItemHovered() then ImGui.SetTooltip("Skips to Selected Wave.") end
+
+			elseif scripts.is_active(UnnaturalSelection.Finish.New.ScriptName) and ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + 3):get_int() ~= 0 then
+				local NewSurvival = UnnaturalSelection.Finish.New
+
+				if ImGui.Button("Start Wave") then
+					ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 3):set_int(ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 3):get_int() - 19999)
+				end ImGui.SameLine() commandmgr.get_command("survivals_noidlekick"):draw()
+
+				if ScriptGlobal(UnnaturalSelection.UGC.Global):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_string() == UnnaturalSelection.UGC.Cayo and bit.band(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless):get_int(), bit.lshift(1, 4)) == 0 then
+					UnnaturalSelection.ChildRes =  UnnaturalSelection.ChildRes + 30
+					if ImGui.Button("Enable Endless Waves Menu") then
+						ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 18):set_int(7)
+					end
+				elseif ScriptGlobal(UnnaturalSelection.UGC.Global):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_string() ~= UnnaturalSelection.UGC.Cayo and bit.band(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless):get_int(), bit.lshift(1, 4)) == 0 then
+					UnnaturalSelection.ChildRes =  UnnaturalSelection.ChildRes + 30
+					if ImGui.Button("Enable Endless Waves") then
+						LocalSetBit(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless), 1, 4)
+					end
+				end
+
+				if ImGui.Button("Instant Finish") then
+					if not UnnaturalSelection.Finish.WaveOnly then ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 247):set_int(10) end
+					ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 18):set_int(4)
+				end
+				ImGui.SameLine()
+				UnnaturalSelection.Finish.WaveOnly = ImGui.Checkbox("Wave Only", UnnaturalSelection.Finish.WaveOnly)
+
+				ImGui.SetNextItemWidth(120)
+				UnnaturalSelection.Finish.ToWave = ImGui.InputInt("Skip to Wave", UnnaturalSelection.Finish.ToWave)
+				ImGui.SameLine()
+				if ImGui.Button("Skip") then
+					ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 247):set_int(UnnaturalSelection.Finish.ToWave - 1)
+					ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 18):set_int(4)
+				end if ImGui.IsItemHovered() then ImGui.SetTooltip("Skips to selected wave.") end
+
+			else
+				CenteredText("No Active Survival", false, false)
+				if commandmgr.get_command("survivals_noidlekick"):get_value() then commandmgr.get_command("survivals_noidlekick"):set_value(false) end
+			end
+
+			if UnnaturalSelection.Finish.ToWave > 10 then
+				if scripts.is_active(UnnaturalSelection.Finish.Classic.ScriptName) then
+					UnnaturalSelection.Finish.ToWave = 10
+				elseif scripts.is_active(UnnaturalSelection.Finish.New.ScriptName) and bit.band(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless):get_int(), bit.lshift(1, 4)) == 0 then
+					UnnaturalSelection.Finish.ToWave = 10
+				end
+			elseif UnnaturalSelection.Finish.ToWave < 1 then
+				UnnaturalSelection.Finish.ToWave = 1
+			end
+
+			end)
+		end
 
 		if ImGui.Button("Enable Weekly Boost") then
 			stats.set_int("MPX_WEEKLY_BOOST_BS", 0)
-			notify.success("TinkerScript - Weekly Boost", "Weekly Boost has been reset! You'll get the maximun payout in heist finales.", 3000)
+			notify.success("TinkerScripts - Weekly Boost", "Weekly Boost has been reset! You'll get the maximun payout in heist finales.", 3000)
 		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Resetting the weekly boost will get you the max payout in heist finales.\nNo one has *reported getting banned for this (yet).") end
-
+		ImGui.SameLine()
 		if ImGui.Button("Criminal Mastermind Bonus") then -- unknowncheats.me/forum/grand-theft-auto-v/453340
 			if not criminalmmbonus then
 				stats.set_int("MPPLY_HEISTFLOWORDERPROGRESS", 268435455)
@@ -3656,7 +4258,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				stats.set_bool("MPPLY_AWD_HST_SAME_TEAM", false)
 				stats.set_bool("MPPLY_AWD_HST_ULT_CHAL", false)
 				criminalmmbonus = true
-				notify.success("TinkerScript - Criminal Mastermind Challenge","$12M Bonus Enabled!", 3000)
+				notify.success("TinkerScripts - Criminal Mastermind Challenge","$12M Bonus Enabled!", 3000)
 			else
 				stats.set_int("MPPLY_HEISTFLOWORDERPROGRESS", -1)
 				stats.set_int("MPPLY_HEISTTEAMPROGRESSBITSET", -1)
@@ -3665,166 +4267,391 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				stats.set_bool("MPPLY_AWD_HST_SAME_TEAM", true)
 				stats.set_bool("MPPLY_AWD_HST_ULT_CHAL", true)
 				criminalmmbonus = false
-				notify.info("TinkerScript - Criminal Mastermind Challenge","$12M Bonus Disabled.", 3000)
+				notify.info("TinkerScripts - Criminal Mastermind Challenge","$12M Bonus Disabled.", 3000)
 			end
 		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Enables the $12M payout bonus for completing the Criminal Mastermind Challenge.") end
 
 		if ImGui.Button("Casino Heist P.O.I Reset") then
 			stats.set_int("MPX_H3OPT_POI", 0)
 			stats.set_int("MPX_H3OPT_ACCESSPOINTS", 0)
-			notify.success("TinkerScript - Casino Heist P.O.I Reset", "Diamond Casino Heist P.O.I and Access Points have been reset.", 3000)
+			notify.success("TinkerScripts - Casino Heist P.O.I Reset", "Diamond Casino Heist P.O.I and Access Points have been reset.", 3000)
 		end
-
+		ImGui.SameLine()
 		if stats.get_int("MPX_CH_ARC_CAB_DISPLAY_SLOT36") ~= 18 or stats.get_int("MPX_CH_ARC_CAB_DISPLAY_SLOT37") ~= 19 then
 			if ImGui.Button("Casino Heist Extras Reset") then
 				stats.set_int("MPX_CAS_HEIST_FLOW", -1610744001)
-				notify.success("TinkerScript - Casino Heist Extras Rese!", "Secure Keypad & Vault Door replicas have been Fixed.", 3000)
+				notify.success("TinkerScripts - Casino Heist Extras Rese!", "Secure Keypad & Vault Door replicas have been Fixed.", 3000)
 			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Resets Secure Keypad & Vault Door at the Arcade, making them available for purchase again.\nYou'll only need this if you can't use them. Once purchased, you'll never have this problem again.") end
 		end
 
 		if ImGui.Button("Crack Stash House Safe") then
 			if scripts.is_active("fm_content_stash_house") then script.run_in_callback(CrackSH) end
-		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Breaks into the safe") end
-
-		ImGui.EndChild()
-		ImGui.EndGroup()
-
-		ImGui.Text("Loot Auto-Grab")ImGui.Separator()ImGui.Spacing()
-		commandmgr.get_command("autoloot"):draw()
+		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Breaks into the safe.") end
 
 		ImGui.EndTabItem()
 	end
 
 	if ImGui.BeginTabItem("Unlocks") then
-		ImGui.Text("Content Unlocks")ImGui.Separator()ImGui.Spacing()
+		ImGui.BeginGroup()
+		CustomChild("Content Unlocks", "##contentunlockschild", 360, 336, 0, function()
+			if ImGui.Button("Bunker") then
+				Rplus_Bunker()
+			end
 
-		if ImGui.Button("Bunker") then
-			Rplus_Bunker()
-		end
+			if ImGui.Button("Arena War##unlock") then
+				Rplus_ArenaWar()
+			end
 
-		if ImGui.Button("Arena War##unlock") then
-			Rplus_ArenaWar()
-		end
+			ImGui.SameLine() Rplus_Config.AW_tier = ImGui.Checkbox("Tier 1000", Rplus_Config.AW_tier)
+			ImGui.SameLine() Rplus_Config.AW_stats = ImGui.Checkbox("Update Stats", Rplus_Config.AW_stats)
 
-		ImGui.SameLine() Rplus_Config.AW_tier = ImGui.Checkbox("Tier 1000", Rplus_Config.AW_tier)
-		ImGui.SameLine() Rplus_Config.AW_stats = ImGui.Checkbox("Write Stats", Rplus_Config.AW_stats)
+			if ImGui.Button("Collectibles") then
+				Rplus_Collectibles()
+			end
 
-		if ImGui.Button("Collectibles") then
-			Rplus_Collectibles()
-		end
+			if ImGui.Button("Tattoos") then
+				Rplus_Tattoos()
+			end
 
-		if ImGui.Button("Tattoos") then
-			Rplus_Tattoos()
-		end
+			if ImGui.Button("Los Santos Customs") then
+				Rplus_LSCustoms()
+			end
 
-		if ImGui.Button("Los Santos Customs") then
-			Rplus_LSCustoms()
-		end
+			if ImGui.Button("Los Santos Car Meet") then
+				Rplus_LSCM()
+			end
 
-		if ImGui.Button("Los Santos Car Meet") then
-			Rplus_LSCM()
-		end
+			ImGui.SameLine() Rplus_Config.LSCM_rep = ImGui.Checkbox("Rep. Level 1000", Rplus_Config.LSCM_rep)
 
-		ImGui.SameLine() Rplus_Config.LSCM_rep = ImGui.Checkbox("Rep. Level 1000", Rplus_Config.LSCM_rep)
-
-		--if ImGui.Button("Eye Colors") then -- Works but doesn't save
-		--	PED.SET_HEAD_BLEND_EYE_COLOR(PLAYER.PLAYER_PED_ID(), Rplus_Config.EyesColor)
-		--end
-		--
-		--ImGui.SameLine() Rplus_Config.EyesColor = ImGui.InputInt("Eyes Color", Rplus_Config.EyesColor)
-
-		if ImGui.Button("Halloween Face Paints") then
-			stats.set_packed_bool_range(4270, 4299, true)
-		end
-
-		if ImGui.Button("Mansion Trophies") then
-			Rplus_MansionTrophies()
-		end
-
-		if ImGui.Button("All Clothing") then
-			Rplus_Cloooathes()
-		end
-
-		ImGui.Spacing()ImGui.Spacing()
-		ImGui.Text("Character Stats")ImGui.Separator()ImGui.Spacing()
-
-		if ImGui.Button("Max Out All Skills") then
-			stats.set_int("MPX_SCRIPT_INCREASE_STAM", 100)
-			stats.set_int("MPX_SCRIPT_INCREASE_STRN", 100)
-			stats.set_int("MPX_SCRIPT_INCREASE_DRIV", 100)
-			stats.set_int("MPX_SCRIPT_INCREASE_FLY", 100)
-			stats.set_int("MPX_SCRIPT_INCREASE_STL", 100)
-			stats.set_int("MPX_SCRIPT_INCREASE_LUNG", 100)
-			stats.set_int("MPX_SCRIPT_INCREASE_SHO", 100)
-			stats.set_int("MPX_CHAR_FM_HEALTH_1_UNLCK", -1)
-			stats.set_int("MPX_CHAR_FM_HEALTH_2_UNLCK", -1)
-		end
-
-		if ImGui.Button("Fast Run") then
-			Rplus_FastRun()
-		end
-
-		if ImGui.Button("Frozen Rank") then
-			Rplus_FrozenRank()
-		end
-
-		ImGui.Spacing()ImGui.Spacing()
-		ImGui.Text("Awards")ImGui.Separator()ImGui.Spacing()
-		if ImGui.Button("Unlock All Awards") then ImGui.OpenPopup("##warnallawards") end if ImGui.IsItemHovered() then ImGui.SetTooltip("Unlocks All Awards.") end
-
-		if ImGui.BeginPopupModal("##warnallawards", nil, 65) then
-			ImGui.Text("Are you sure you want to unlock All Awards?")
-			ImGui.Spacing()
-			if ImGui.Button("Yes") then
-				for _, allAwards in ipairs(Rplus_Awards) do
-					allAwards.Unlock()
+			if ImGui.Button("LSCM Prize Ride Vehicle") then
+				if not stats.get_bool("MPX_CARMEET_PV_CLMED") then
+					stats.set_bool("MPX_CARMEET_PV_CHLLGE_CMPLT", true)
+					notify.success("TinkerScripts - LSCM Prize Ride Vehicle", "Success! Weekly Prize Ride ready to claim!")
+				else
+					notify.error("TinkerScripts - LSCM Prize Ride Vehicle", "You've already claimed this week's Prize Ride!")
 				end
-				notify.success("TinkerScript - All Awards Only", "All Awards Unlocked!", 3000)
-				ImGui.CloseCurrentPopup()
 			end
-			ImGui.SameLine()
-			if ImGui.Button("No") then
-				ImGui.CloseCurrentPopup()
+
+			if ImGui.Button("Halloween Face Paints") then
+				stats.set_packed_bool_range(4270, 4299, true)
+				notify.success("TinkerScripts - Halloween Face Paints", "All Halloween Face Paints Unlocked!", 3000)
 			end
-			ImGui.EndPopup()
-		end
+
+			if ImGui.Button("Mansion Trophies") then
+				Rplus_MansionTrophies()
+			end
+
+			if ImGui.Button("All Clothing") then
+				Rplus_Cloooathes()
+			end
+		end)
+
+		CustomChild("Career Progresss", "##careerprogressschild", 360, 100, 0, function()
+			if ImGui.Button("Complete All Challenges") then
+				Rplus_CareerProgress()
+			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Completes All Challenges.") end
+		end)
+		ImGui.EndGroup()
 
 		ImGui.SameLine()
-		ImGui.Spacing()
-		ImGui.SameLine(0, 3.8)
-		if ImGui.TreeNodeEx("Categories  ##"..nomoretreeplease, 8219) then
-			for i, Awards in ipairs(Rplus_Awards) do
-				if (i - 1) % 4 ~= 0 then ImGui.SameLine() end
+		CustomChild("Character Stats", "##characterstatschild", Rplus_Config.Child.Charstatx, Rplus_Config.Child.Charstaty, 0, function()
 
-				if ImGui.Button(Awards.Category) then
-					Awards.Unlock()
-					notify.success("TinkerScript - All Awards Only", string.format("All \"%s\" Awards Unlocked!", Awards.Category))
+			Rplus_Config.Child.Charstatx = 360
+			Rplus_Config.Child.Charstaty = 336
+
+			ImGui.Spacing()
+			ImGui.SameLine(0, 3.8)
+			if ImGui.TreeNodeEx("Rank Editor  ##"..nomoretreeplease, 8219) then
+				Rplus_Config.Child.Charstatx = 400
+				Rplus_Config.Child.Charstaty = 440
+
+				ImGui.BeginChild("##setrankchild", 370, 200, 1)
+
+				ImGui.Text("Player Rank")
+				ImGui.SameLine()
+				ImGui.TextDisabled("|  Current Rank: "..stats.get_int("MPX_CHAR_RANK_FM"))
+				ImGui.Separator()
+				ImGui.Spacing()
+				commandmgr.get_command("rprank"):draw()
+
+				ImGui.SameLine()
+				if ImGui.Button("Set Rank##player") then ImGui.OpenPopup("##warnsetrank") end
+				if ImGui.BeginPopupModal("##warnsetrank", nil, 65) then
+					ImGui.Text("Are you sure?")
+					ImGui.Spacing()
+					if ImGui.Button("Yes") then
+						stats.set_int("MPX_CHAR_SET_RP_GIFT_ADMIN", Rplus_Ranks.QuadraPoly(commandmgr.get_command("rprank"):get_value()))
+						notify.success("TinkerScripts - Player Rank", "New Rank: ".. commandmgr.get_command("rprank"):get_value().."\nPlease change sessions to see the changes.", 3000)
+						ImGui.CloseCurrentPopup()
+					end
+					ImGui.SameLine() if ImGui.Button("No") then
+						ImGui.CloseCurrentPopup()
+					end
+					ImGui.EndPopup()
+				end
+
+				if ImGui.Button("Frozen Rank 1") then ImGui.OpenPopup("##warnfrozenrank") end
+				if ImGui.BeginPopupModal("##warnfrozenrank", nil, 65) then
+					ImGui.Text("Are you sure you want to become a certified N00B?")
+					ImGui.Spacing()
+					if ImGui.Button("Yes") then
+						Rplus_FrozenRank()
+						ImGui.CloseCurrentPopup()
+					end
+					ImGui.SameLine() if ImGui.Button("No") then
+						ImGui.CloseCurrentPopup()
+					end
+					ImGui.EndPopup()
+				end
+
+				ImGui.Spacing()
+				ImGui.Text("Crew Rank")
+				ImGui.SameLine()
+				ImGui.TextDisabled("|  Current Active Crew Rank: "..stats.get_int("MPPLY_CURRENT_CREW_RANK"))
+				ImGui.Separator()
+				ImGui.Spacing()
+
+				for i = 0, 4 do
+					if stats.get_int("MPPLY_CREW_"..i.."_ID") ~= 0 then
+						commandmgr.get_command("crewrank"..i):draw()
+						ImGui.SameLine()
+						if ImGui.Button("Set Rank##crew"..i) then
+							stats.set_int("MPPLY_CREW_LOCAL_XP_"..i, Rplus_Ranks.QuadraPoly(commandmgr.get_command("crewrank"..i):get_value()))
+							notify.success("TinkerScripts - Crew Rank", "New Crew "..i.." Rank: ".. commandmgr.get_command("crewrank"..i):get_value(), 3000)
+						end
+						if stats.get_int("MPPLY_CREW_"..i.."_ID") == stats.get_int("MPX_CHAR_PREFERRED_CREW") then
+							ImGui.SameLine() ImGui.TextDisabled("Active Crew")
+						end
+					end
+				end
+				ImGui.EndChild()
+			end
+
+			ImGui.Spacing()
+			ImGui.SameLine(0, 3.8)
+			if ImGui.TreeNodeEx("K/D Editor  ##"..nomoretreeplease, 8219) then
+				Rplus_Config.Child.Charstatx = 400
+				Rplus_Config.Child.Charstaty = 440
+
+				ImGui.BeginChild("##editkdchild", 370, Rplus_Config.KD_editor.ChildRes, 1)
+				Rplus_Config.KD_editor.ChildRes = 264
+
+				ImGui.AlignTextToFramePadding()
+				ImGui.Text(string.format("K/D Ratio: %.2f", (stats.get_int("MPPLY_KILLS_PLAYERS") / stats.get_int("MPPLY_DEATHS_PLAYER")))) if ImGui.IsItemHovered() then ImGui.SetTooltip("Not always accurate to ratio displayed in-game.") end
+				ImGui.SameLine()
+				if ImGui.Button("Switch Mode") then
+					Rplus_Config.KD_editor.Slider = not Rplus_Config.KD_editor.Slider
+				end
+				ImGui.Separator()
+
+				ImGui.PushItemWidth(180)
+				if Rplus_Config.KD_editor.Slider then
+					Rplus_Config.PlayerKills, Killschanged = ImGui.SliderInt("Kills", stats.get_int("MPPLY_KILLS_PLAYERS"), -1000000000, 1000000000)
+					Rplus_Config.PlayerDeaths, Deathschanged = ImGui.SliderInt("Deaths", stats.get_int("MPPLY_DEATHS_PLAYER"), -1000000000, 1000000000)
+				else
+					Rplus_Config.PlayerKills, Killschanged = ImGui.InputInt("Kills", stats.get_int("MPPLY_KILLS_PLAYERS"))
+					Rplus_Config.PlayerDeaths, Deathschanged = ImGui.InputInt("Deaths", stats.get_int("MPPLY_DEATHS_PLAYER"))
+				end
+
+				if Killschanged then stats.set_int("MPPLY_KILLS_PLAYERS", Rplus_Config.PlayerKills) end
+				if Deathschanged then stats.set_int("MPPLY_DEATHS_PLAYER", Rplus_Config.PlayerDeaths) end
+
+				if ImGui.Button("Frozen "..Rplus_Config.KD_editor.FrezenKD.." K/D") then
+					stats.set_int("MPPLY_KILLS_PLAYERS", Rplus_Config.KD_editor.FrezenKD * 10000000)
+					stats.set_int("MPPLY_DEATHS_PLAYER", 10000000)
+				end
+
+				ImGui.SameLine()
+				if ImGui.Button("-", 25) then
+					Rplus_Config.KD_editor.FrezenKD = Rplus_Config.KD_editor.FrezenKD - 1
+				end
+
+				ImGui.SameLine(0, 4)
+				if ImGui.Button("+", 25) then
+					Rplus_Config.KD_editor.FrezenKD = Rplus_Config.KD_editor.FrezenKD + 1
+				end
+
+				ImGui.SameLine()
+				Rplus_Config.KD_editor.Negative, Negativekdchanged = ImGui.Checkbox("Negative", Rplus_Config.KD_editor.Negative)
+				if Negativekdchanged then
+					Rplus_Config.KD_editor.FrezenKD = -Rplus_Config.KD_editor.FrezenKD
+				end
+
+				if Rplus_Config.KD_editor.FrezenKD <= 0 then
+					Rplus_Config.KD_editor.FrezenKD = 1
+				elseif Rplus_Config.KD_editor.FrezenKD >= 10 then
+					Rplus_Config.KD_editor.FrezenKD = 9
+				end
+
+				ImGui.Spacing()
+				ImGui.AlignTextToFramePadding()
+				ImGui.Text("Archenemy & Victim")
+				ImGui.SameLine()
+				if ImGui.Button("Switch Mode##enemyvictim") then
+					Rplus_Config.KD_editor.ArchOrVictimNode = not Rplus_Config.KD_editor.ArchOrVictimNode
+				end
+				ImGui.Separator()
+				ImGui.Spacing()
+
+				if not Rplus_Config.KD_editor.ArchOrVictimNode then
+					Rplus_Config.KD_editor.ArchOrVictim = ImGui.InputText("Archenemy", stats.get_string("MPX_ARCHENEMY_NAME"))
+					Rplus_Config.KD_editor.KilledKills = ImGui.InputText("Killed By", tostring(stats.get_int("MPX_ARCHENEMY_KILLS")))
+				else
+					Rplus_Config.KD_editor.ArchOrVictim = ImGui.InputText("Victim", stats.get_string("MPX_BIGGEST_VICTIM_NAME"))
+					Rplus_Config.KD_editor.KilledKills = ImGui.InputText("Kills##victim", tostring(stats.get_int("MPX_BIGGEST_VICTIM_KILLS")))
+				end
+
+				ImGui.Spacing()
+				ImGui.Spacing()
+				ImGui.SameLine(0, 3.8)
+				if ImGui.TreeNodeEx("Text Formatting  ##kdeditorformatting"..nomoretreeplease, 8219) then
+					Rplus_Config.KD_editor.ChildRes = Rplus_Config.KD_editor.ChildRes + 148
+					ImGui.BeginGroup()
+
+					for i, textformat in ipairs(ReN_Style) do
+						if i % 2 == 0 then ImGui.SameLine() end
+
+						if ImGui.Button(textformat.tbLabel, 100) then
+							Rplus_Config.KD_editor.ArchOrVictim = Rplus_Config.KD_editor.ArchOrVictim .. textformat.tStyle
+						end if ImGui.IsItemHovered() then ImGui.SetTooltip(textformat.tStyle) end
+					end
+
+					ImGui.EndGroup()
+
+					ImGui.SameLine()
+					ImGui.BeginGroup()
+					ImGui.NewLine()ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
+					ImGui.Text("Colors")
+
+					for i, textcolor in ipairs(ReN_Color) do
+						if (i - 1) % 4 ~= 0 then ImGui.SameLine() end
+
+						if ImGui.ColorButton(textcolor.bName, textcolor.bCol, 64) then
+							Rplus_Config.KD_editor.ArchOrVictim = Rplus_Config.KD_editor.ArchOrVictim .. textcolor.tColf
+						end if ImGui.IsItemHovered() then ImGui.SetTooltip(textcolor.bTip..": "..textcolor.tColf) end
+					end
+					ImGui.EndGroup()
+					ImGui.Spacing()
+				end
+
+				if not Rplus_Config.KD_editor.ArchOrVictimNode then
+					stats.set_string("MPX_ARCHENEMY_NAME", Rplus_Config.KD_editor.ArchOrVictim)
+				else
+					stats.set_string("MPX_BIGGEST_VICTIM_NAME", Rplus_Config.KD_editor.ArchOrVictim)
+				end
+
+				ImGui.PopItemWidth()
+				ImGui.EndChild()
+			end
+
+			if ImGui.Button("Max Out All Skills") then
+				stats.set_int("MPX_SCRIPT_INCREASE_STAM", 100)
+				stats.set_int("MPX_SCRIPT_INCREASE_STRN", 100)
+				stats.set_int("MPX_SCRIPT_INCREASE_DRIV", 100)
+				stats.set_int("MPX_SCRIPT_INCREASE_FLY", 100)
+				stats.set_int("MPX_SCRIPT_INCREASE_STL", 100)
+				stats.set_int("MPX_SCRIPT_INCREASE_LUNG", 100)
+				stats.set_int("MPX_SCRIPT_INCREASE_SHO", 100)
+				stats.set_int("MPX_CHAR_FM_HEALTH_1_UNLCK", -1)
+				stats.set_int("MPX_CHAR_FM_HEALTH_2_UNLCK", -1)
+				notify.success("TinkerScripts - Character Skills", "All Character Skill have been maxed out!", 3000)
+			end
+
+			if ImGui.Button("Fast Run") then
+				Rplus_FastRun()
+			end
+		end)
+
+		CustomChild("Awards", "##awardschild", Rplus_Config.Child.Awardsx, Rplus_Config.Child.Awardsy, 0, function()
+			Rplus_Config.Child.Awardsx = 360
+			Rplus_Config.Child.Awardsy = 100
+			if ImGui.Button("Unlock All Awards") then ImGui.OpenPopup("##warnallawards") end if ImGui.IsItemHovered() then ImGui.SetTooltip("Unlocks All Awards.") end
+
+			if ImGui.BeginPopupModal("##warnallawards", nil, 65) then
+				ImGui.Text("Are you sure you want to unlock All Awards?")
+				ImGui.Spacing()
+				if ImGui.Button("Yes") then
+					for _, allAwards in ipairs(Rplus_Awards) do
+						allAwards.Unlock()
+					end
+					notify.success("TinkerScripts - All Awards Only", "All Awards Unlocked!", 3000)
+					ImGui.CloseCurrentPopup()
+				end
+				ImGui.SameLine()
+				if ImGui.Button("No") then
+					ImGui.CloseCurrentPopup()
+				end
+				ImGui.EndPopup()
+			end
+
+			ImGui.SameLine()
+			ImGui.Spacing()
+			ImGui.SameLine(0, 3.8)
+			if ImGui.TreeNodeEx("Categories  ##"..nomoretreeplease, 8219) then
+				Rplus_Config.Child.Awardsx = 768
+				Rplus_Config.Child.Awardsy = 244
+				for i, Awards in ipairs(Rplus_Awards) do
+					if (i - 1) % 4 ~= 0 then ImGui.SameLine() end
+
+					if ImGui.Button(Awards.Category) then
+						Awards.Unlock()
+						notify.success("TinkerScripts - All Awards Only", string.format("All \"%s\" Awards Unlocked!", Awards.Category))
+					end
 				end
 			end
-		end
+		end)
 
-		ImGui.Spacing()ImGui.Spacing()
-		ImGui.Text("Career Progress")ImGui.Separator()ImGui.Spacing()
-		if ImGui.Button("Complete All Challenges") then
-			Rplus_CareerProgress()
-		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Completes All Challenges.") end
-
-		ImGui.Spacing()ImGui.Spacing()
-		ImGui.Text("Misc")ImGui.Separator()ImGui.Spacing()
-
-		if ImGui.Button("LSCM Prize RIde Vehicle") then
-			if not stats.get_bool("MPX_CARMEET_PV_CLMED") then
-				stats.set_bool("MPX_CARMEET_PV_CHLLGE_CMPLT", true)
-				notify.success("TinkerScript - LSCM Prize Ride Vehicle", "Success! Weekly Prize Ride ready to claim!")
-			else
-				notify.error("TinkerScript - LSCM Prize Ride Vehicle", "You've already claimed this week's Prize Ride!")
+		CustomChild("Achievements", "##achievementschild", 360, 100, 0, function() -- Platform achievements
+			commandmgr.get_command("achievementsonly"):draw()
+			if ImGui.Button("Unlock Achievements") then
+				if not Rplus_Config.AllAchievements then
+					if commandmgr.get_command("achievementsonly"):get_value() <= 0 then
+						notify.error("TinkerScripts - All Achievements Only", "Select something first!", 3000)
+					else
+						if not PLAYER.HAS_ACHIEVEMENT_BEEN_PASSED(commandmgr.get_command("achievementsonly"):get_value()) then
+							PLAYER.GIVE_ACHIEVEMENT_TO_PLAYER(commandmgr.get_command("achievementsonly"):get_value())
+							notify.success("TinkerScripts - All Achievements Only", string.format("%s Unlocked!", Rplus_Achievements[commandmgr.get_command("achievementsonly"):get_value()][2]))
+						else
+							notify.info("TinkerScripts - All Achievements Only", "Achievement already unlocked.", 3000)
+						end
+					end
+				else
+					ImGui.OpenPopup("##warnallachievements")
+				end
 			end
-		end
+			if ImGui.BeginPopupModal("##warnallachievements", nil, 65) then
+				ImGui.Text("Are you sure you want to unlock All Achievements?")
+				ImGui.Spacing()
+				if ImGui.Button("Yes") then
+					local trackachunlock = 0
+					for i, achievement in ipairs(Rplus_Achievements) do
+						if not PLAYER.HAS_ACHIEVEMENT_BEEN_PASSED(i) then
+							PLAYER.GIVE_ACHIEVEMENT_TO_PLAYER(i)
+							log.info(string.format("%s%s\27[1;36m%s\27[m%s", cls, lual, achievement[2], cls))
+							trackachunlock = trackachunlock + 1
+						end
+					end
+					if trackachunlock == 0 then
+						notify.info("TinkerScripts - All Achievements Only", "No Achievements left to unlock!")
+					else
+						notify.success("TinkerScripts - All Achievements Only", "All Achievements Unlocked!")
+						log.info(string.format("%s%sTinkerScripts - All Achievements Only: \27[32mAll Achievements Unlocked!\27[m%s\n", cls, lual, cls))
+					end
+					ImGui.CloseCurrentPopup()
+				end
+				ImGui.SameLine() if ImGui.Button("No") then
+					ImGui.CloseCurrentPopup()
+				end
+				ImGui.EndPopup()
+			end
+			ImGui.SameLine() Rplus_Config.AllAchievements = ImGui.Checkbox("All Achievements", Rplus_Config.AllAchievements)
+		end)
 
-		if ImGui.Button("Skip Jenette Dialogues") then
-			stats.set_packed_bool_range(51192, 51195, true)
-			notify.success("TinkerScript - Jenette The Mutette", "Success! Jenette dialogues have been skipped!")
-		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Skips Jenette dialogues at the Bail Office when using the laptop.") end
+		CustomChild("Rockstar Dev Shirts", "##devshirtschild", 360, 100, 0, function()
+			if ImGui.Button("Unlock All R* Dev Shirts") then
+				Rplus_DevShirt()
+			end
+		end)
 
 		ImGui.EndTabItem()
 	end
@@ -3837,8 +4664,8 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 		commandmgr.get_command("Tunaggle_Xmas"):draw()
 
 		if commandmgr.get_command("Tunaggle_Xmas"):get_value() then
-			ImGui.SameLine() xmas_snow = ImGui.Checkbox("Enable Snow", xmas_snow)
-
+			ImGui.SameLine()
+			xmas_snow = ImGui.Checkbox("Enable Snow", xmas_snow)
 			if xmas_snow then
 				tunables.set_bool(-1146554960, true)
 				tunables.set_bool(-1195222077, false)
@@ -3871,7 +4698,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 						while true do
 							script.yield(SindyBar.Delay)
 							if SindyBar.Loop then
-								ScriptGlobal(PropGlob.mcbar):at(PLAYER.PLAYER_ID(), 884):set_int(SindyBar.Money)
+								ScriptGlobal(PropGlob.mcbar):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):set_int(SindyBar.Money)
 								script.yield(200)
 								LocalSetBit(ScriptLocal("am_mp_property_int", 230), 1, 18)
 							else
@@ -3894,7 +4721,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 		if SindyBar.ManualBarMoney then
 			if ImGui.BeginChild("##sindylooperchild", 282, 132, 1) then
 				ImGui.SetNextItemWidth(128) SindyBar.Money = ImGui.InputInt("Earnings", SindyBar.Money)
-				ImGui.SameLine() if ImGui.Button("Set", 41) then ScriptGlobal(PropGlob.mcbar):at(PLAYER.PLAYER_ID(), 884):set_int(SindyBar.Money) end
+				ImGui.SameLine() if ImGui.Button("Set", 41) then ScriptGlobal(PropGlob.mcbar):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):set_int(SindyBar.Money) end
 				ImGui.SetNextItemWidth(108) SindyBar.Delay, MCBD_changed = ImGui.InputInt("Loop Delay", SindyBar.Delay)
 				ImGui.Spacing()
 				if SindyBar.Money > 100000 then SindyBar.Money = 100000 end
@@ -3973,7 +4800,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 
 			if ImGui.Button("Apply##"..ZoneName) then
 				stats.set_masked_bool(Tattoo.selectedTattoo, Tattoo.selectedTatVal, true) -- I should probably use set_masked_int but this is more convenient
-				notify.success("TinkerScript - Human Canvas", "Applied: "..Tattoo.selectedTatName)
+				notify.success("TinkerScripts - Human Canvas", "Applied: "..Tattoo.selectedTatName)
 			end
 
 			ImGui.SameLine()
@@ -3982,7 +4809,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				if stats.get_masked_bool(Tattoo.selectedTattoo, Tattoo.selectedTatVal) ~= false then -- Could be useful after applying the wrong tattoo or something
 					if ImGui.Button("Remove##"..ZoneName) then
 						stats.set_masked_bool(Tattoo.selectedTattoo, Tattoo.selectedTatVal, false)
-						notify.info("TinkerScript - Human Canvas", "Removed: " .. Tattoo.selectedTatName)
+						notify.info("TinkerScripts - Human Canvas", "Removed: " .. Tattoo.selectedTatName)
 						Tattoo.selectedTatName = "Select..."
 					end
 				end
@@ -4005,10 +4832,10 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 						local tatstat, tatvalue = stat:match("^(.-) = (.-)$")
 						stats.set_int(tatstat, tonumber(tatvalue))
 					else
-						log.error(string.format("%s%sTinkerScript - Human Canvas: \27[0;31mWrong Tattoo format!\27[m Make sure you copied the stats correctly.", cls, lual))
-						notify.error("TinkerScript - Human Canvas", "Wrong Tattoo format! Make sure you copied the stats correctly.", 3000) break
+						log.error(string.format("%s%sTinkerScripts - Human Canvas: \27[0;31mWrong Tattoo format!\27[m Make sure you copied the stats correctly.", cls, lual))
+						notify.error("TinkerScripts - Human Canvas", "Wrong Tattoo format! Make sure you copied the stats correctly.", 3000) break
 					end
-					notify.success("TinkerScript - Human Canvas", "Success! Tattoo Combo applied correctly.\nPlease change sesions to see the changes", 3000)
+					notify.success("TinkerScripts - Human Canvas", "Success! Tattoo Combo applied correctly.\nPlease change sessions to see the changes.", 3000)
 					STATS.STAT_SAVE(0, 0, 3, 0)
 				end
 			else
@@ -4017,10 +4844,10 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 						local tatstat, tatvalue = stat:match("^(.-) = (.-)$")
 						stats.set_int(tatstat, tonumber(tatvalue))
 					else
-						log.error(string.format("%s%sTinkerScript - Human Canvas: \27[0;31mWrong Tattoo File format!\n\27[mValid format: MPX_TATTOO_FM_CURRENT_X = Value", cls, lual))
-						notify.error("TinkerScript - Human Canvas", "Wrong Tattoo File format! Valid format: MPX_TATTOO_FM_CURRENT_X = Value", 3000) break
+						log.error(string.format("%s%sTinkerScripts - Human Canvas: \27[0;31mWrong Tattoo File format!\n\27[mValid format: MPX_TATTOO_FM_CURRENT_X = Value", cls, lual))
+						notify.error("TinkerScripts - Human Canvas", "Wrong Tattoo File format! Valid format: MPX_TATTOO_FM_CURRENT_X = Value", 3000) break
 					end
-					notify.success("TinkerScript - Human Canvas", "Success! Tattoo Combo applied correctly.\nPlease change sesions to see the changes", 3000)
+					notify.success("TinkerScripts - Human Canvas", "Success! Tattoo Combo applied correctly.\nPlease change sessions to see the changes.", 3000)
 					STATS.STAT_SAVE(0, 0, 3, 0)
 				end
 			end
@@ -4035,11 +4862,11 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				table.insert(ExpTatCombo, string.format("MPX_TATTOO_FM_CURRENT_%d = %d", i, tatCombo))
 			end
 			if Rplus_Config.ComboToFile then
-				FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/HumanCanvas/Exported_TattooCombo.txt", table.concat(ExpTatCombo, "\n"), false)
-				notify.success("TinkerScript - Human Canvas", "Success! Tattoos Combo has been exported to: Exported_TattooCombo.txt", 3000)
+				FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/HumanCanvas/Exported_TattooCombo.txt", table.concat(ExpTatCombo, "\n"), false)
+				notify.success("TinkerScripts - Human Canvas", "Success! Tattoos Combo has been exported to: Exported_TattooCombo.txt", 3000)
 			else
 				ImGui.SetClipboardText(table.concat(ExpTatCombo, "\n"))
-				notify.success("TinkerScript - Human Canvas", "Success! Tattoos Combo has been exported to Clipboard", 3000)
+				notify.success("TinkerScripts - Human Canvas", "Success! Tattoos Combo has been exported to Clipboard", 3000)
 			end
 		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Exports your current Tattoo Combo to Clipboard") end
 
@@ -4049,8 +4876,8 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 		ImGui.SameLine()
 		ImGui.SetNextItemWidth(360)
 			if ImGui.Button("Copy Path") then
-				ImGui.SetClipboardText("%AppData%/YimMenuV2/scripts/TinkerScripts/HumanCanvas/Exported_TattooCombo.txt")
-				notify.success("TinkerScript - Human Canvas", "Path to Exported Tattoos has been copied to clipboard!", 3000)
+				ImGui.SetClipboardText("%AppData%/YimMenuV2/scripts/TinkerScripts/include/HumanCanvas/Exported_TattooCombo.txt")
+				notify.success("TinkerScripts - Human Canvas", "Path to Exported Tattoos has been copied to clipboard!", 3000)
 			end if ImGui.IsItemHovered() then ImGui.SetTooltip("Copies Exported Tattoos \"File\" path to clipboard.") end
 		end
 		ImGui.EndGroup()
@@ -4067,7 +4894,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				for i = 0, 53 do
 					stats.set_int("MPX_TATTOO_FM_CURRENT_"..i, -1)
 				end
-				notify.success("TinkerScript - Human Canvas", "Success! All tattoos Applied.", 3000)
+				notify.success("TinkerScripts - Human Canvas", "Success! All tattoos Applied.", 3000)
 				ImGui.CloseCurrentPopup()
 			end
 			ImGui.SameLine() if ImGui.Button("No") then
@@ -4087,7 +4914,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				for i = 0, 53 do
 					stats.set_int("MPX_TATTOO_FM_CURRENT_"..i, 0)
 				end
-				notify.success("TinkerScript - Human Canvas", "Success! All tattoos removed.", 3000)
+				notify.success("TinkerScripts - Human Canvas", "Success! All tattoos removed.", 3000)
 				ImGui.CloseCurrentPopup()
 			end
 			ImGui.SameLine() if ImGui.Button("No") then
@@ -4097,22 +4924,45 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 		end
 
 		ImGui.Spacing()
-		ImGui.Text("Face Paints") if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to stack face paints.\nSelected face paint will be applied automatically.\nOpacity works only for the items on the first list.") end ImGui.Separator()ImGui.Spacing()
-		commandmgr.get_command("humcanv_fp1list"):draw()
-		commandmgr.get_command("humcanv_fp2list"):draw() if ImGui.IsItemHovered() then ImGui.SetTooltip("If any of these don't get applied, buy any of them first (Cheapest one is \"Vertical Stripe\").") end
+		ImGui.Text("Face Paints") if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to stack face paints.\nSelected face paint will be applied automatically.\nIf any of these don't get applied, buy any of them first.") end ImGui.Separator()ImGui.Spacing()
+		commandmgr.get_command("humcanv_fp1list"):draw() ImGui.SameLine() ImGui.TextDisabled("(?)") if ImGui.IsItemHovered() then ImGui.SetTooltip("Eyes Makeup: Smoky Black - Devastated.\nFace Paints start with \"Kiss My Axe\".") end
+		commandmgr.get_command("humcanv_fp2list"):draw() ImGui.SameLine() ImGui.TextDisabled("(?)") if ImGui.IsItemHovered() then ImGui.SetTooltip("Blusher (Female Only): Full - Eighties.\nFace Paints start with \"Waves Left\".") end
 
 		ImGui.SetNextItemWidth(100)
-		Rplus_Config.FacePaint_Opacity, fpchange = ImGui.SliderFloat("Face Paint/Makeup Opacity", Rplus_Config.FacePaint_Opacity, 0.0, 1.0) if ImGui.IsItemHovered() then ImGui.SetTooltip([[Looks cool ¯\_(°-°)_/¯]]) end
+		Rplus_Config.FacePaint_Opacity, fpchange = ImGui.SliderFloat("Face Paint Opacity##fppaintopacity", Rplus_Config.FacePaint_Opacity, 0.0, 1.0) if ImGui.IsItemHovered() then ImGui.SetTooltip([[Looks cool ¯\_(°-°)_/¯]]) end
 		if fpchange then stats.set_float("MPX_HEADBLEND_OVERLAY_MAKEUP_PC", Rplus_Config.FacePaint_Opacity) end
+		ImGui.SetNextItemWidth(100)
+		Rplus_Config.FacePaint_Opacity2, fpchange2 = ImGui.SliderFloat("Makeup Opacity##fppaintopacity2", Rplus_Config.FacePaint_Opacity2, 0.0, 1.0)
+		if fpchange2 then stats.set_float("MPX_HEADBLEND_OVERLAY_BLUSHER", Rplus_Config.FacePaint_Opacity2) end
+
+		ImGui.Spacing()
+		ImGui.SameLine(0, 3.8)
+		if ImGui.TreeNodeEx("Face Paint/Makeup Color ##fpmakeupcol"..nomoretreeplease, 8219) then
+			ImGui.SameLine(0, 14)
+
+			ImGui.Text("Current: "..stats.get_int(HC_MakeupColor.Stat2))
+
+			for i, makeup in ipairs(HC_MakeupColor.Colors) do
+				if (i - 1) % 16 ~= 0 then ImGui.SameLine() end
+
+				if ImGui.ColorButton("##fpmakeupcol"..makeup.statVal, makeup.bCol, 64) then
+					stats.set_int(HC_MakeupColor.Stat, makeup.statVal)
+					stats.set_int(HC_MakeupColor.Stat2, i)
+					notify.success("TinkerScripts - Human Canvas", "Success! Makeup Color Applied: "..i, 3000)
+				end if ImGui.IsItemHovered() then ImGui.SetTooltip(string.format("Color (%d of 64)", i)) end
+			end
+		end
 
 		ImGui.Spacing()
 		ImGui.Text("Hair")ImGui.Separator()ImGui.Spacing()
 
 		ImGui.BeginGroup()
+		ImGui.Spacing()
+		ImGui.SameLine(0, 3.8)
 		if ImGui.TreeNodeEx("Hair Color  ##haircol"..nomoretreeplease, 8219) then
 			ImGui.SameLine(0, 14)
 
-			ImGui.Text("Current: "..stats.get_int(HC_HairColor.HighlightOnOff.Stat)) if ImGui.IsItemHovered() then ImGui.SetTooltip(string.format("This is you real hair color value.\nHovering over the colors below will display the value from Barber Shops.", i)) end
+			ImGui.Text("Current: "..stats.get_int(HC_HairColor.HighlightOnOff.Stat)) if ImGui.IsItemHovered() then ImGui.SetTooltip("This is you real hair color value.\nHovering over the colors below will display the value from Barber Shops.") end
 
 			ImGui.SameLine() HC_HairColor.HiddenColToggle = ImGui.Checkbox("Hidden Colors", HC_HairColor.HiddenColToggle)
 			ImGui.SameLine() HC_HairColor.HighlightOnOff.Toggle = ImGui.Checkbox("Highlight", HC_HairColor.HighlightOnOff.Toggle)
@@ -4122,9 +4972,9 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				if ImGui.ColorButton("##haircol"..HairB.statVal, HairB.bCol, 64) then
 					stats.set_int(HC_HairColor.HighlightOnOff.Stat, HairB.statVal)
 					if not HC_HairColor.HiddenColToggle then
-						notify.success("TinkerScript - Human Canvas", "Success! Hair Color Applied: "..i, 3000)
+						notify.success("TinkerScripts - Human Canvas", "Success! Hair Color Applied: "..i, 3000)
 					else
-						notify.success("TinkerScript - Human Canvas", "Success! Hair Color Applied: "..stats.get_int(HC_HairColor.HighlightOnOff.Stat), 3000)
+						notify.success("TinkerScripts - Human Canvas", "Success! Hair Color Applied: "..stats.get_int(HC_HairColor.HighlightOnOff.Stat), 3000)
 					end
 				end if ImGui.IsItemHovered() then if not HC_HairColor.HiddenColToggle then ImGui.SetTooltip(string.format("Color (%d of 48)", i)) else ImGui.SetTooltip(string.format("Color %d", HairB.statVal)) end end
 			end
@@ -4139,7 +4989,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 
 				if ImGui.ColorButton("##haircol"..HairB.statVal, HairB.bCol, 64) then
 					stats.set_int(HC_HairColor.HighlightOnOff.Stat, HairB.statVal)
-					notify.success("TinkerScript - Human Canvas", "Success! Hidden Hair Color Applied: "..stats.get_int(HC_HairColor.HighlightOnOff.Stat), 3000)
+					notify.success("TinkerScripts - Human Canvas", "Success! Hidden Hair Color Applied: "..stats.get_int(HC_HairColor.HighlightOnOff.Stat), 3000)
 				end if ImGui.IsItemHovered() then ImGui.SetTooltip(string.format("Color %d", HairB.statVal)) end
 			end
 		end
@@ -4164,36 +5014,43 @@ local Stngsplus_Config = {
 
 local function CloseBCSonUnload()
 	if Stngsplus_Config.CloseBCSonUnload then
-		FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/Settings/BlockCloudSaves/NoSave.txt", "Close", false)
+		FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt", "Close", false)
 	end
 	return Stngsplus_Config.CloseBCSonUnload
 end
 
-local function SaveSettings(tabl) -- Also from stackoverflow (darkfrei) but just what I need. Could've done more progress on the script but decided to mess around with this thing (I wish i didn't). I don't even know if this is a serializer anymore
-    local set = {}
-	local order = { -- It seems that this is the only way to "preserve" the order
-		"HGWHrestock",
-		"HGWHmaxgoods",
-		"HGsetgood",
-		"HGgoodtype",
-		"WHsetgood",
-		"WHgoodtype",
-		"MCresup",
-		"MCrestock",
-		"NCgoods",
-		"NoClipState",
-		"NoClipWindowTop",
-		"LoadSettings",
-		"CloseBCSonUnload"
+local function SaveSettings()
+	local commands = {
+		add_command = {
+			{ format = "HGWHrestock",	main = "HGWH_restock" },
+			{ format = "HGWHmaxgoods",	main = "HGWH_maxgoods" },
+			{ format = "HGsetgood",		main = "HG_setgood" },
+			{ format = "HGgoodtype",	main = "HG_goodtype" },
+			{ format = "WHsetgood",		main = "WH_setgood" },
+			{ format = "WHgoodtype",	main = "WH_goodtype" },
+			{ format = "MCresup",		main = "MC_resup" },
+			{ format = "MCrestock",		main = "MC_restock" },
+			{ format = "NCgoods",		main = "NC_goods" },
+			{ format = "NoClipState",	main = "noclip_onscreen" }
+		},
+		checkbox = {
+			{ format = "NoClipWindowTop",	main = NoClipWindowTop },
+			{ format = "LoadSettings",		main = Stngsplus_Config.LoadSettings },
+			{ format = "CloseBCSonUnload",	main = Stngsplus_Config.CloseBCSonUnload }
+		}
 	}
-    for _, key in ipairs(order) do
-        table.insert(set, key.." = "..tostring(tabl[key]))
-    end
-    return "TS_Settings = {}\n".."TS_Settings."..table.concat(set, "\nTS_Settings.") -- previously a regular table
+    FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings = {}\n", false)
+    for _, cmd in ipairs(commands.add_command) do
+		FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings."..cmd.format.." = "..tostring(commandmgr.get_command(cmd.main):get_value()).."\n", true)
+	end
+	for _, check in ipairs(commands.checkbox) do
+		FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings."..check.format.." = "..tostring(check.main).."\n", true)
+	end
 end
 
 local function LoadSavedSettings() -- My brain started melting since last function, i feel like somethings wrong but i dont know what
-	load(TS_PATH_Settings())()
+	package.loaded["TS_Settings"] = false -- docs
+	require("TS_Settings")
 	Stngsplus_Config.LoadSettings = TS_Settings.LoadSettings
 	Stngsplus_Config.CloseBCSonUnload = TS_Settings.CloseBCSonUnload
 	NoClipWindowTop = TS_Settings.NoClipWindowTop
@@ -4216,21 +5073,7 @@ TS_SettingsPlus:imgui(function()
 		CenteredText("Submenu Settings", false, true) ImGui.Spacing()
 
 		if ImGui.Button("Save Current Settings") then
-			FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/Settings/TS_Settings.lua", SaveSettings({
-				HGWHrestock = commandmgr.get_command("HGWH_restock"):get_value(),
-				HGWHmaxgoods = commandmgr.get_command("HGWH_maxgoods"):get_value(),
-				HGsetgood = commandmgr.get_command("HG_setgood"):get_value(),
-				WHsetgood = commandmgr.get_command("WH_setgood"):get_value(),
-				MCresup = commandmgr.get_command("MC_resup"):get_value(),
-				MCrestock = commandmgr.get_command("MC_restock"):get_value(),
-				NCgoods = commandmgr.get_command("NC_goods"):get_value(),
-				HGgoodtype = commandmgr.get_command("HG_goodtype"):get_value(),
-				WHgoodtype = commandmgr.get_command("WH_goodtype"):get_value(),
-				NoClipState = commandmgr.get_command("noclip_onscreen"):get_value(),
-				NoClipWindowTop = NoClipWindowTop,
-				LoadSettings = Stngsplus_Config.LoadSettings,
-				CloseBCSonUnload = Stngsplus_Config.CloseBCSonUnload
-			}))
+			SaveSettings()
 		end
 
 		if ImGui.Button("Load Saved Settings") then
@@ -4262,17 +5105,17 @@ TS_SettingsPlus:imgui(function()
 		ImGui.Spacing()
 
 		if ImGui.Button("Disable Cloud Saves") then
-			FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/Settings/BlockCloudSaves/NoSave.txt", "Disable", false)
+			FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt", "Disable", false)
 		end
 
 		if ImGui.Button("Enable Cloud Saves") then
-			FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/Settings/BlockCloudSaves/NoSave.txt", "Enable", false)
+			FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt", "Enable", false)
 		end
 
 		ImGui.Spacing()ImGui.Spacing()
 		if ImGui.Button("Copy Path##blocksaves") then
-			ImGui.SetClipboardText("%AppData%/YimMenuV2/scripts/TinkerScripts/Settings/BlockCloudSaves/BlockCloudSaves.bat")
-			notify.success("TinkerScript - Block Cloud Saves", "Path to BlockCloudSaves.bat has been copied to clipboard!", 3000)
+			ImGui.SetClipboardText("%AppData%/YimMenuV2/scripts/TinkerScripts/include/Settings/BlockCloudSaves/BlockCloudSaves.bat")
+			notify.success("TinkerScripts - Block Cloud Saves", "Path to BlockCloudSaves.bat has been copied to clipboard!", 3000)
 		end
 
 		Stngsplus_Config.CloseBCSonUnload = ImGui.Checkbox("Close Tool on Menu Unload", Stngsplus_Config.CloseBCSonUnload) if ImGui.IsItemHovered() then ImGui.SetTooltip("Should BlockCloudSaves.bat close itself on menu unload? (Enabled by default)\nThis will remove the firewall rule added by the tool, so you don't have problems joining Online in your next game session.") end
@@ -4282,6 +5125,7 @@ TS_SettingsPlus:imgui(function()
 end)
 
 if Stngsplus_Config.LoadSettings then LoadSavedSettings() end
+log.info(string.format("%s%sTinkerScripts%s", cls, lual, lual_s))
 
 event.register_handler(menu_event.Unload, function()
 	CloseBCSonUnload()

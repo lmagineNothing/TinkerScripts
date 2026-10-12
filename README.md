@@ -25,23 +25,29 @@
 
 <details>
   <summary><B>How To Use</B></summary>
-  
+
+> Starting from v1.0.1, TinkerScripts.lua is inside TinkerScripts (folder). If you have been using the previous version, please remove it completely from your scripts folder.<br>
+> Don't disable any scripts in **"TinkerScripts/..."** path.<br>
+> Make sure you're using the latest versison of YimMenuV2! 
+
 <div align="center"><details>
   <summary><B>Structure</B></summary>
-<pre><code><div align="left">TinkerScripts.lua ← This is the main script.
-📦 TinkerScripts/ ← This is the folder that contains the necessary files for the main script to work.
-├─ 📄 Blips.lua
-├─ 📂 HumanCanvas/
-│  ├─ 📄 Exported_TattooCombo.txt ← Using "Export/Import Tattoos" will save to/load from this file.
-│  └─ 📄 FMCharTats.lua
-├─ 📂 Settings/
-│  ├─ 📂 BlockCloudSaves/
-│  │  ├─ 📄 BlockCloudSaves.bat ← See BlockCloudSaves
-│  │  └─ 📄 NoSave.txt
-│  └─ 📄 TS_Settings.lua
-└─ 📂 TS_RecoveryPlus/
-   ├─ 📄 Tunables.lua
-   └─ 📄 Unlocks.lua</div></code></pre>
+
+<pre><code><div align="left">📦 TinkerScripts/                       
+├─ 📄 TinkerScripts.lua                 <-- This is the main script.
+└─ 📂 include/                          
+   ├─ 📄 Blips.lua                      
+   ├─ 📂 HumanCanvas/                   
+   │  ├─ 📄 Exported_TattooCombo.txt    <-- Using "Export/Import Tattoos" will save to/load from this file.
+   │  └─ 📄 FMCharTats.lua              
+   ├─ 📂 Settings/                      
+   │  ├─ 📂 BlockCloudSaves/            
+   │  │  ├─ 📄 BlockCloudSaves.bat      <-- See BlockCloudSaves
+   │  │  └─ 📄 NoSave.txt               
+   │  └─ 📄 TS_Settings.lua             
+   └─ 📂 TS_RecoveryPlus/               
+      ├─ 📄 Tunables.lua                
+      └─ 📄 Unlocks.lua                 </div></code></pre>
 Tree generated with File Tree Extractor.
 </details></div>
 
@@ -63,7 +69,7 @@ Tree generated with File Tree Extractor.
     - Fast Respawn.
     - Fast Reload.
     - Infinite Combat Roll. (+ No Recoil/Spread)
-    - Ragdoll on command.
+    - Ragdoll on demand.
     - Character abilities boost.
     - Force Cloud Save.
     - Teleport into Personal Vehicle.
@@ -80,12 +86,15 @@ Tree generated with File Tree Extractor.
     - Rapid Oxidation: Embrace **The Spirit Of Vengeance** and **The Phoenix**.
     - TinyPlayer: Become **Ant-Man**. <sub>(I guess?)</sub>
     - No Clip Animations and State On-Screen.
+    - Blackout.
     - Hidden Locations: Teleport to Hidden/Random Locations.
 
 #### Biz-Teroids
 - Business on steroids! Resupply and Restock your businesses with a single click! (or choose your own options).
     - Instant Sell/Buy/Steal.
-    - Trigger Excess Weapon Parts & Bar Earnings.
+    - Trigger, Alien Egg Resupply Mission (Bunker), Excess Weapon Parts & Bar Earnings.
+    - Source Special Items (CEO Warehouses).
+    - Teleport to Businesses.
 
 #### Phone Master
 - Phone Animations.
@@ -103,29 +112,72 @@ Tree generated with File Tree Extractor.
 - Like the pony, but on wheels.
 
 #### Recovery +
-- A category with useful/convenient stats and _some_ **UNLOCKS** .
+- A category with useful/convenient stats and _some_ **UNLOCKS**.
 If you want to unlock **EVERYTHING**, check out this other script: [UnlockEverything](https://www.unknowncheats.me/forum/4743916-post792.html)
 
-    - Safe Cracker: Heist Finale Options. <sub>*Only those that are NOT available in the menu, except the Kortz Center Heist (See screenshot below, I can't explain this part properly)</sub>
-    - Extras:
-        - Mission Skips. <sub>*Only those that can't be replayed through the Pause Menu</sub>
-        - Misc:
-            - Enable Heists Weekly Boost.
-            - Criminal Mastermind Bonus. ($12M Bonus)
-            - Casino Heist: P.O.I & Extras (Secure Keypad & Vault Door) Reset.
-            - Crack Stash House Safe. <sub>Removed at some point but added it back since built-in one doesn't automatically open the safe</sub>
-    - Loot Auto-Grab
-    - Unlocks:
-        - Content Unlocks: All Bunker, Collectibles, Tattoos, LSC Unlocks. <sub>(probably won't add more)</sub>
-        - Character Stats: Fast Run, Frozen Rank, Max out stats.
-    - Money:
-        - Good Behaviour Bonus, Casino Membership Bonus.
-        - Sindy Looper: MC Clubhouse Bag-Loop. <sub>THESE FEATURES SHOULD NOT BE CONSIDERED "SAFE". I haven't tested the limits.</sub>
-    - Tunables: Enable Independence Day and Christmas content. <sub>(probably won't add more)</sub>
-    - Human Canvas:
-        - Stack, Import and Export Tattoos.
-        - Stack Face Paints.
-        - Hair Colors: Regular and Hidden Hair/Highlight Colors.
+- **Mission Master**:
+  - Heists: Heist Finale Options. <sub>*Only those that are NOT available in the menu, except the Kortz Center Heist.</sub>
+    - Cluckin' Bell Farm Raid:
+      - Crack Safe.
+      - Teleport to Office Keys.
+      - Open All Doors.
+    - Cayo Perico Heist:
+      - Solo Mantrap.
+      - Take Secondary Target.
+      - Teleport to Key Card.
+      - Teleport to Gate Keys.
+    - Kortz Center Heist:
+      - Skip Data Crack, Fingerprint Hacking, Vault Door Hacking.
+      - Take Primary/Secondary Target.
+      - Auto-Enter PC Access Code.
+      - Disable Lasers + Easy/Hard Mode, No damage (Harmless) Lasers.
+      - Cut Glass.
+      - Disable All Cameras (Exterior & Interior).
+      - Teleport to Exit Keys.
+      - Instant Finish.
+  - Mission Setups & Skips:
+      - Auto Shop Contract.
+      - Dr. Dre Contract.
+      - Cluckin' Bell Farm Raid.
+      - LSA Operations.
+      - Salvage Yard.
+      - Bounty Targets.
+      - FIB Files.
+      - Oscar Guzman Flies Again.
+      - KnoWay Out.
+      - The Kortz Center Heist.
+  - Misc:
+    - Loot Auto-Grab.
+    - Min. Mission Payout.
+    - Survivals:
+      - No Idle Kick.
+      - Start Wave.
+      - Skip to Wave.
+      - Instant Finish.
+      - Enable Endless Waves.
+    - Enable Heists Weekly Boost.
+    - Criminal Mastermind Bonus. ($12M Bonus)
+    - Casino Heist: P.O.I & Extras (Secure Keypad & Vault Door) Reset.
+    - Crack Stash House Safe. <sub>Removed at some point but added it back since built-in one doesn't automatically open the safe</sub>
+- **Unlocks**:
+    - Content Unlocks: All Bunker, Collectibles, Tattoos, LSC Unlocks, etc.
+    - Character Stats: Rank & KD Editor Fast Run, Frozen Rank, Max out stats.
+    - Awards.
+    - Career Progress.
+    - Achievements.
+    - Rockstar Dev Shirts.
+- **Money**:
+    - Good Behaviour Bonus, Casino Membership Bonus.
+    - Sindy Looper: MC Clubhouse Bag-Loop. <sub>THESE FEATURES SHOULD NOT BE CONSIDERED "SAFE". I haven't tested the limits.</sub>
+- **Tunables**:
+  - Enable Independence Day.
+  - Halloween.
+  - Christmas content. <sub>(probably won't add more)</sub>
+- **Human Canvas**:
+    - Stack, Import and Export Tattoos.
+    - Stack Face Paints/Makeup.
+    - Face Paint/Makeup Opacity & Colors.
+    - Hair Colors: Regular and Hidden Hair/Highlight Colors.
 
 #### Settings +
 - Save/Load submenu settings.
@@ -174,6 +226,11 @@ Also, I've tested every single feature mentioned above, but you still may find t
 - Phone Master: Works well but it breaks a bit when using the email app. Enabling Celltowa phone model breaks some services, e.g. Clothing Stores or the Gun Van; can be fixed by joining a new session. If phone gets stuck completely you'll have to restart the game (It has happened to me only once, and was just after latest patch 1158.16)
 - Human Canvas: Stacked Face Paints are not persistent and will disappear after restarting the game.
 - Open All Doors in Cayo Perico Heist won't enable loot in Compound. Use Solo Mantrap to be able to grab the loot.
+- Character wheel won't appear if selected phone theme is other than default. Can be "fixed" by changing to default theme; alternatively use "Quit to Store Mode" in pause menu.
+- Instant Sell in MC Business missions doesn't always actually add the payout to player's balance.
+- Don't change session if you're restocking your businesses.
+- Teleport to "X" teleports player to "Blips", so you may end up under the map or similar. Also, retire from CEO or become a MC President to be able to teleport to MC Businesses.
+- You won't get any payout if you Skip Waves or use Instant Finish in "New Survivals" (Probably related to kills).
 
 </details>
 
@@ -196,7 +253,7 @@ I'm not a programmer. I even struggle with the basics, but I'm proud of what I'v
 
 If you have made changes to the original code or you are using it in your own menu (or YimMenuV2 fork) and you really want to **SHARE**, **don't discriminate**; keep it **open source** for **EVERYONE**.
 
-Also, **stop feeding my mess to AI** .-.
+Also, **stop feeding my mess to AI**.-.
 
 # Contact
 <a href="https://www.unknowncheats.me/forum/members/3627117.html">
@@ -209,4 +266,5 @@ Also, **stop feeding my mess to AI** .-.
 - [Mystro69](https://github.com/Mystro69) | [Outfit Renamer](https://github.com/Mystro69/Outfit-Renamer-1.66)
 - [ShinyWasabi](https://github.com/ShinyWasabi) | [scrDbg](https://github.com/ShinyWasabi/scrDbg)
 - [xesdoog](https://github.com/xesdoog) | [YimRageUI](https://github.com/xesdoog/YimRageUI) - Helped me better understand how to interact with an UI/submenu.
+- MrLiteX | R* Dev Shirts Transaction Method
 - Stack Overflow | Code Snippets & Information <!-- A LOT -->

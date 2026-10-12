@@ -10,6 +10,19 @@
 
 ]]
 
+Rplus_Config = {
+	AW_tier = false,
+	AW_stats = false,
+	LSCM_rep = false,
+    AllAchievements = false,
+    KD_editor = { ChildRes = 264, Slider = false, FrezenKD = 1, Negative = false, ArchOrVictimMode = false, PlayerKills, PlayerDeaths, ArchOrVictim, KilledKills },
+    Child = { Awardsx = 360, Awardsy = 100, Charstatx = 360, Charstaty = 336  },
+	FacePaint_Opacity = 1.0,
+	FacePaint_Opacity2 = 1.0,
+	ComboToFile = false,
+	FiletoChar = false
+}
+
 function Rplus_Cloooathes() -- Fun fact, this is the first script I made but I never posted it since it's almost the same as the UnlockEverything script, so I decided to port/update that one instead
     stats.set_packed_bool_range(110, 113, true)
     stats.set_packed_bool_range(3593, 3599, true)
@@ -272,7 +285,7 @@ function Rplus_Cloooathes() -- Fun fact, this is the first script I made but I n
         stats.set_packed_bool_range(30429, 30433, true)
         stats.set_packed_bool_range(41285, 41296, true)
     end
-    notify.success("TinkerScript - All Clothing Only", "Success! All Clothing Unlocked!", 3000)
+    notify.success("TinkerScript - Clothing Only", "Success! All Clothing Unlocked!", 3000)
 end
 
 function Rplus_Bunker()
@@ -293,19 +306,19 @@ function Rplus_Bunker()
 	stats.set_int("MPX_SR_HIGHSCORE_5", 2650)
 	stats.set_int("MPX_SR_HIGHSCORE_6", 450)
 	stats.set_int("MPX_SR_TARGETS_HIT", 269)
-	notify.success("TinkerScript - All Bunker Unlocks Only", "Success! All Bunker Content Unlocked!", 3000)
+	notify.success("TinkerScript - Bunker Unlocks", "Success! All Bunker Content Unlocked!", 3000)
 end
 
 function Rplus_Collectibles()
 	stats.set_packed_bool_range(26811, 26910, true) -- Action Figures
 	stats.set_packed_bool_range(34262, 34361, true) -- LD Organics Product
-	stats.set_packed_bool_range(30230, 30251, true) -- Movie Props (+Space Interloper Outfit)
+	stats.set_packed_bool_range(30230, 30251, true) -- Movie Props (+Space Interloper Outfit) - reason: https://www.unknowncheats.me/forum/4564503-post495.html
 	stats.set_packed_bool_range(26911, 26964, true) -- Playing Cards
 	stats.set_packed_bool_range(28099, 28148, true) -- Signal Jammers
 	stats.set_packed_bool_range(36630, 36654, true) -- Snowmen
 	stats.set_packed_bool_range(51302, 51337, true) -- Yuanbao
 	stats.set_packed_bool_range(54737, 54761, true) -- Lucky Clovers
-	notify.success("TinkerScript - All collectibles Only", "Success! All Collectibles have been unlocked", 3000)
+	notify.success("TinkerScript - Collectibles Only", "Success! All Collectibles have been unlocked", 3000)
 end
 
 function Rplus_Tattoos()
@@ -316,11 +329,12 @@ function Rplus_Tattoos()
 		stats.set_packed_bool(tatpb, true)
 	end
 	stats.set_packed_bool_range(41273, 41296, true) -- Monkey, Dragon, Snake, Goat, Rat, Rabbit, Ox, Pig, Rooster, Dog, Horse, Tiger
-	notify.success("TinkerScript - All Tattoos Only", "Success! All Tattoos have been unlocked.", 3000)
+	notify.success("TinkerScript - Tattoos Only", "Success! All Tattoos have been unlocked.", 3000)
 end
 
 function Rplus_MansionTrophies()
     stats.set_packed_bool_range(54787, 54817, true)
+    stats.set_bool("MPPLY_FEATURED_COMMUNITY_JOB", true)
     stats.set_packed_bool_range(60105, 60105, true)
 	notify.success("TinkerScript - Mansion Trophies Only", "Success! All Mansion Trophies have been unlocked.", 3000)
 end
@@ -371,7 +385,7 @@ local LSC_stats = {
 		end
 	end
 
-	notify.success("TinkerScript - All LSC Unlocks Only", "Success! All LSC Colors unlocked.", 3000) -- Hopefully ;D
+	notify.success("TinkerScript - Los Santos Customs Unlocks", "Success! All LSC Colors unlocked.", 3000) -- Hopefully ;D
 end
 
 function Rplus_ArenaWar()
@@ -386,9 +400,9 @@ function Rplus_ArenaWar()
 		stats.set_int("MPX_ARENAWARS_AP_TIER", 1000)
 		stats.set_int("MPX_ARENAWARS_AP_LIFETIME", 5055000)
 		stats.set_int("MPX_ARENAWARS_AP", 10040)
-		notify.success("Script - All Arena War Unlocks Only", "Your Arena War Tier is now 1000!", 3000)
+		notify.success("TinkerScript - Arena War Unlocks", "Your Arena War Tier is now 1000!", 3000)
 	else
-		notify.info("Script - All Arena War Unlocks Only", "Edit Arena War Tier Disabled.", 3000)
+		notify.info("TinkerScript - Arena War Unlocks", "Update Arena War Tier Disabled.", 3000)
 	end
 
 	if Rplus_Config.AW_stats then
@@ -464,10 +478,12 @@ function Rplus_ArenaWar()
 		stats.set_int("MPX_ARN_W_THEME_SCIFI", 10)
 		stats.set_int("MPX_ARN_W_THEME_APOC", 10)
 		stats.set_int("MPX_ARN_W_THEME_CONS", 10)
-		notify.success("Script - All Arena War Unlocks Only", "Arena War Stats updated!", 3000)
+		notify.success("TinkerScript - Arena War Unlocks", "Arena War Stats updated!", 3000)
 	else
-		notify.info("Script - All Arena War Unlocks Only", "Edit Arena War Stats Disabled.", 3000)
+		notify.info("TinkerScript - Arena War Unlocks", "Update Arena War Stats Disabled.", 3000)
 	end
+
+    notify.success("Script - Arena War Unlocks", "All Arena War Content is now Unlocked!", 3000)
 end
 
 function Rplus_LSCM()
@@ -489,10 +505,12 @@ local LSCM_pb = {
 
 	if Rplus_Config.LSCM_rep then
 		stats.set_int("MPX_CAR_CLUB_REP", 997430)
-		notify.success("Script - All LSCM Unlocks Only", "Your LSCM Rep Level is now 1000!", 3000)
+		notify.success("TinkerScript - Los Santos Car Meet Unlocks", "Your LSCM Rep Level is now 1000!", 3000)
 	else
-		notify.info("Script - All LSCM Unlocks Only", "Edit LSCM Rep Level Disabled.", 3000)
+		notify.info("TinkerScript - Los Santos Car Meet Unlocks", "Update LSCM Rep Level Disabled.", 3000)
 	end
+
+    notify.success("TinkerScript - Los Santos Car Meet Unlocks", "All LSCM Content is now Unlocked!", 3000)
 end
 
 function Rplus_FastRun()
@@ -507,6 +525,31 @@ function Rplus_FastRun()
 		end
 		notify.success("TinkerScript - Fast Run", "Fast Run Disabled!\nPlease join a new session to see the changes.", 3000)
 	end
+end
+
+function Rplus_DevShirt() -- Credit to MrLiteX https://www.unknowncheats.me/forum/grand-theft-auto-v/578963-packed-stats-int-bool-collection-thread-53.html#
+    if ENTITY.GET_ENTITY_MODEL(PLAYER.PLAYER_PED_ID()) == 1885233650 then
+    	if transactions.can_use_transactions() then
+            for i = 0, 2 do
+                transactions.run_service("CATEGORY_SERVICE", "NET_SHOP_ACTION_SPEND", "M_CL_RSTAR_DEV_"..i.."_t100_v0", 0)
+            end
+        else
+    	    stats.set_masked_bool("MPX_TATTOO_FM_UNLOCKS_8", 29, true)
+    	    stats.set_masked_bool("MPX_TATTOO_FM_UNLOCKS_8", 30, true)
+    	    stats.set_masked_bool("MPX_TATTOO_FM_UNLOCKS_8", 31, true)
+        end
+    else
+    	if transactions.can_use_transactions() then
+            for i = 0, 2 do
+                transactions.run_service("CATEGORY_SERVICE", "NET_SHOP_ACTION_SPEND", "F_CL_RSTAR_DEV_"..i.."_t100_v0", 0)
+            end
+        else
+    	    stats.set_masked_bool("MPX_TATTOO_FM_UNLOCKS_9", 10, true)
+    	    stats.set_masked_bool("MPX_TATTOO_FM_UNLOCKS_9", 11, true)
+    	    stats.set_masked_bool("MPX_TATTOO_FM_UNLOCKS_9", 12, true)
+        end
+    end
+    notify.success("TinkerScripts - Rockstar Dev Shirts", "All Dev Shirts Unlocked!", 3000)
 end
 
 function Rplus_FrozenRank()
@@ -1078,7 +1121,7 @@ Rplus_Awards = { -- One day I'll make a proper table for these stats...
 
 function Rplus_CareerProgress()
     script.run_in_callback(function()
-        notify.info("Script - Career Progress", "Completing challenges...")
+        notify.info("TinkerScript - Career Progress", "Completing challenges...")
         stats.set_packed_bool(60011, true)
         stats.set_int("MPX_K26_GENERAL_BS", -1)
         stats.set_packed_bool_range(60021, 60028, true)
@@ -1304,6 +1347,101 @@ function Rplus_CareerProgress()
         stats.set_packed_int(42088, 15)
         stats.set_packed_int(42091, 10)
         stats.set_packed_int(60050, 15)
-        notify.success("TinkerScript - Career Progress", "Success!\nPlease check your Career page") -- Stats by ShinyWasabi - ImagineNothing
+        notify.success("TinkerScript - Career Progress", "Success!\nPlease check your Career page.") -- Stats by ShinyWasabi - ImagineNothing
     end)
 end
+
+Rplus_Achievements = {
+    { 1, "Welcome to Los Santos" },
+    { 2, "A Friendship Resurrected" },
+    { 3, "A Fair Day's Pay" },
+    { 4, "The Moment of Truth" },
+    { 5, "To Live or Die in Los Santos" },
+    { 6, "Diamond Hard" },
+    { 7, "Subversive" },
+    { 8, "Blitzed" },
+    { 9, "Small Town, Big Job" },
+    { 10, "The Government Gimps" },
+    { 11, "The Big One!" },
+    { 12, "Solid Gold, Baby!" },
+    { 13, "Career Criminal" },
+    { 14, "San Andreas Sightseer" },
+    { 15, "All's Fare in Love and War" },
+    { 16, "TP Industries Arms Race" },
+    { 17, "Multi-Disciplined" },
+    { 18, "From Beyond the Stars" },
+    { 19, "A Mystery, Solved" },
+    { 20, "Waste Management" },
+    { 21, "Red Mist" },
+    { 22, "Show Off" },
+    { 23, "Kifflom!" },
+    { 24, "Three Man Army" },
+    { 25, "Out of Your Depth" },
+    { 26, "Altruist Acolyte" },
+    { 27, "A Lot of Cheddar" },
+    { 28, "Trading Pure Alpha" },
+    { 29, "Pimp My Sidearm" },
+    { 30, "Wanted: Alive Or Alive" },
+    { 31, "Los Santos Customs" },
+    { 32, "Close Shave" },
+    { 33, "Off the Plane" },
+    { 34, "Three-Bit Gangster" },
+    { 35, "Making Moves" },
+    { 36, "Above the Law" },
+    { 37, "Numero Uno" },
+    { 38, "The Midnight Club" },
+    { 39, "Unnatural Selection" },
+    { 40, "Backseat Driver" },
+    { 41, "Run Like The Wind" },
+    { 42, "Clean Sweep" },
+    { 43, "Decorated" },
+    { 44, "Stick Up Kid" },
+    { 45, "Enjoy Your Stay" },
+    { 46, "Crew Cut" },
+    { 47, "Full Refund" },
+    { 48, "Dialling Digits" },
+    { 49, "American Dream" },
+    { 50, "A New Perspective" },
+    { 51, "Be Prepared" },
+    { 52, "In the Name of Science" },
+    { 53, "Dead Presidents" },
+    { 54, "Parole Day" },
+    { 55, "Shot Caller" },
+    { 56, "Four Way" },
+    { 57, "Live a Little" },
+    { 58, "Can't Touch This" },
+    { 59, "Mastermind" },
+    { 60, "Vinewood Visionary" },
+    { 61, "Majestic" },
+    { 62, "Humans of Los Santos" },
+    { 63, "First Time Director" },
+    { 64, "Animal Lover" },
+    { 65, "Ensemble Piece" },
+    { 66, "Cult Movie" },
+    { 67, "Location Scout" },
+    { 68, "Method Actor" },
+    { 69, "Cryptozoologist" },
+    { 70, "Getting Started" },
+    { 71, "The Data Breaches" },
+    { 72, "The Bogdan Problem" },
+    { 73, "The Doomsday Scenario" },
+    { 74, "A World Worth Saving" },
+    { 75, "Orbital Obliteration" },
+    { 76, "Elitist" },
+    { 77, "Masterminds" }
+}
+
+Rplus_Ranks = {
+    QuadraPoly = function(Rank) return Rplus_Ranks.To98[Rank] or 25 * Rank ^ 2 + 23575 * Rank - 1023150 end,
+    To98 = {
+	    0, 800, 2100, 3800, 6100, 9500, 12500, 16000, 19800, 24000, 28500, 33400, 38700, 44200,
+	    50200, 56400, 63000, 69900, 77100, 84700, 92500, 100700, 109200, 118000, 127100, 136500, 146200, 156200,
+	    166500, 177100, 188000, 199200, 210700, 222400, 234500, 246800, 259400, 272300, 285500, 299000, 312700, 326800,
+	    341000, 355600, 370500, 385600, 401000, 416600, 432600, 448800, 465200, 482000, 499000, 516300, 533800, 551600,
+	    569600, 588000, 606500, 625400, 644500, 663800, 683400, 703300, 723400, 743800, 764500, 785400, 806500, 827900,
+	    849600, 871500, 893600, 916000, 938700, 961600, 984700, 1008100, 1031800, 1055700, 1079800, 1104200, 1128800, 1153700,
+	    1178800, 1204200, 1229800, 1255600, 1281700, 1308100, 1334600, 1361400, 1388500, 1415800, 1443300, 1471100, 1499100, 1527300,
+    },
+    ToMax = {},
+}
+for i = 1, 8000 do Rplus_Ranks.ToMax[i] = { i, ""..i } end
