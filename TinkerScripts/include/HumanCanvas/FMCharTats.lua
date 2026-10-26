@@ -1870,11 +1870,9 @@ HC_MakeupColor = {
 }
 
 function HumanCanvas()
-	if ENTITY.GET_ENTITY_MODEL(PLAYER.PLAYER_PED_ID()) == 1885233650 then
+	if Entity(players.get_local():get_ped():get_handle()):get_model() == 1885233650 then
 		return HumanC_Male
-	elseif ENTITY.GET_ENTITY_MODEL(PLAYER.PLAYER_PED_ID()) == -1667301416 then
+	elseif Entity(players.get_local():get_ped():get_handle()):get_model() == -1667301416 then
 		return HumanC_Female
 	end
 end
-
-return HumanCanvas()

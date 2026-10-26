@@ -11,31 +11,36 @@
 ]]
 
 natives.load_natives()
+
+require("include.Blips")
+require("include.TS_RecoveryPlus.Unlocks")
+require("include.TS_RecoveryPlus.Tunables")
+require("include.HumanCanvas.FMCharTats")
+require("include.Settings.TS_Settings")
+local function TS_PATH_FMCharTatCombo() return FileMgr.ReadFileContent("TinkerScripts/include/HumanCanvas/Exported_TattooCombo.txt") end
+
 local cls = "                                            \r"
 local lual = "\r\27[9C]\27[94m[INFO/LuaScript]\27[m "
 local lual_s = ": \27[92mInitialized successfully\27[m                           "
-local function IsOnline() return NETWORK.NETWORK_IS_SESSION_STARTED() and not NETWORK.NETWORK_IS_IN_TRANSITION() and not STREAMING.IS_PLAYER_SWITCH_IN_PROGRESS() and not NETWORK.NETWORK_IS_ACTIVITY_SESSION() end
 
----|| Submenu ||----------------------------------------------------------------------------------
+local screenX, screenY = ImGui.GetDisplaySize()
+local nomoretreeplease = util.time()
+local INT_MAX = 2147483647
+local INT_MIN = -2147483648
 
 local TS_BUILD = "1158.16"
 local OnlineVersion, GameVersion = util.get_game_version()
+local function IsOnline() return network.is_session_started() and not NETWORK.NETWORK_IS_ACTIVITY_SESSION() end
 
 if GameVersion ~= TS_BUILD then
     notify.error("TinkeScripts - WRONG GAME BUILD", string.format("TinkeScripts: %s\nCurrent Game Build: %s", TS_BUILD, GameVersion))
-    log.error(string.format("%s\r\27[18C\27[31m[ERROR/LuaScript]\27[m TinkerScripts: WRONG GAME BUILD: %s | TinkeScripts: %s %s\27[B]                %s   ", cls, GameVersion, TS_BUILD, cls, cls)) return
+	script.require_game_build(OnlineVersion, TS_BUILD)
 end
 
-local TinkerPath = FileMgr.GetMenuRootPath()
-require("Blips")
-require("Unlocks")
-require("Tunables")
-require("FMCharTats")
-require("TS_Settings")
-local function TS_PATH_FMCharTatCombo() return FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/include/HumanCanvas/Exported_TattooCombo.txt") end
-local function TS_PATH_NoCloudSave() return FileMgr.ReadFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt") end
+---|| Submenu ||----------------------------------------------------------------------------------
 
 menu.set_menu_icon("\xef\x81\xae\xef\x81\xae")
+
 local Tinker = menu.get_submenu("TinkerScripts")
 local TS_Main = Tinker:add_category("Main")
 local TS_Bizteroids = Tinker:add_category("Biz-Teroids")
@@ -68,11 +73,6 @@ function scripts.start_new_script(ScriptName, StackSize)
 		end
 	end)
 end
-
-local screenX, screenY = ImGui.GetDisplaySize()
-local nomoretreeplease = util.time()
-local INT_MAX = 2147483647
-local INT_MIN = -2147483648
 
 local function CenteredText(Text, NewSeparator, FakeSeparatorText)
 	if not FakeSeparatorText then
@@ -167,6 +167,41 @@ local LocationCoords = { -- some from rage.mp
 	{ LocName = "Motel",					LocDesc = "Teleport to Motel",								LocCoords = {152.2605,-1004.471, -98.99999} },
 	{ LocName = "FIB Building",				LocDesc = "Teleport to FIB Building",						LocCoords = {134.5835,-749.339, 258.152} },
 	{ LocName = "IAA Office",				LocDesc = "Teleport to IAA Office",							LocCoords = {117.22,-620.938, 206.1398} }
+}
+
+local RequestServices = {
+	AllowMultiple = {
+		State = ScriptGlobal(2658296):at(PLAYER.PLAYER_ID(), 468):at(325),
+		Veh = {
+			{ Offset = 1, Bitset = 25 },
+			{ Offset = 2, Bitset = 8  },
+			{ Offset = 3, Bitset = 11 },
+			{ Offset = 4, Bitset = 31 },
+			{ Offset = 6, Bitset = 0  }
+		}
+	},
+	Serv = {
+		{ ServName = "Mobile Operations Center", ServDesc = "Get the mechaninc to deliver your Mobile Operations Center.",		 		ServOffset = 577,	ServBlip = Blips.GR_COVERT_OPS		 },
+		{ ServName = "Avenger",					 ServDesc = "Get the mechaninc to deliver your Avenger.",						 		ServOffset = 585,	ServBlip = Blips.NHP_VEH1			 },
+		{ ServName = "Terrorbyte",				 ServDesc = "Request your Terrorbyte to be delivered.",							 		ServOffset = 591,	ServBlip = Blips.BAT_WP1			 },
+		{ ServName = "Kosatka",					 ServDesc = "Make use of the facilities offered by your Kosatka.",				 		ServOffset = 613,	ServBlip = Blips.SUB2				 },
+		{ ServName = "Dinghy",					 ServDesc = "Pavel will deliver a Dinghy to a location nearby.",					 	ServOffset = 626,	ServBlip = Blips.PLAYER_BOAT		 },
+		{ ServName = "Acid Lab",				 ServDesc = "Get Mutt to deliver your Acid Lab.",								 		ServOffset = 592,	ServBlip = Blips.ACID_LAB			 },
+		{ ServName = "Acid Lab Bike",			 ServDesc = "Make use of the facilities offered by your Acid Lab Bike.",			 	ServOffset = 648,	ServBlip = Blips.GANG_BIKE			 },
+		{ ServName = "Bail Office Transporter",	 ServDesc = "Request your Bail Office Transporter.",								 	ServOffset = 362,	ServBlip = Blips.OFFICE_TRANSPORTER	 },
+		{ ServName = "Ballistic Equipment",		 ServDesc = "Request Ballistic Equipment.\n(Instat Equip or Remove if already active)",	ServOffset = 548 + 1 },
+		{ ServName = "Ammo Drop",				 ServDesc = "Request Ammo Drop.",												 		ServOffset = 538,	ServBlip = Blips.GANG_ATTACK_PACKAGE },
+		{ ServName = "RC Bandito",				 ServDesc = "Play with your RC Bandito.",										 		ServOffset = 5832	 },
+		{ ServName = "RC Tank",					 ServDesc = "Play with your RC Tank.",											 		ServOffset = 5833	 },
+		{ ServName = "Taxi",					 ServDesc = "Request a Taxi.",													 		ServOffset = 509,	ServBlip = Blips.TAXI		 },
+		{ ServName = "Boat Pickup",				 ServDesc = "Request a Boat Pickup.",											 		ServOffset = 539,	ServBlip = Blips.DOCK		 },
+		{ ServName = "Helicopter Pickup",		 ServDesc = "Request a Helicopter Pickup.",										 		ServOffset = 540,	ServBlip = Blips.PLAYER_HELI },
+		{ ServName = "Bull Shark Testosterone",	 ServDesc = "Request Bull Shark Testosterone.",									 		ServOffset = 546,	ServBlip = Blips.TESTOSTERONE },
+		{ ServName = "Backup Helicopter",		 ServDesc = "Request a Backup Helicopter.",										 		ServOffset = 3579	 },
+		{ ServName = "Cayo Helicopter Backup",	 ServDesc = "Request a Cayo Helicopter Backup.",									 	ServOffset = 490	 },
+		{ ServName = "Airstrike",				 ServDesc = "Request an Airstrike.",												 	ServOffset = 3580	 }
+	},
+	ReqSuperVolito = false
 }
 
 local function FastRespawn()
@@ -472,6 +507,36 @@ local ReN_Color = {
 	{ bName = "##Blacknnf",		bTip = "Black",		 tColf = "~u~",	 bCol = {0.0, 0.0, 0.0, 1.0} }
 }
 
+local function TextFormatting_Style()
+	for i, textformat in ipairs(ReN_Style) do
+		if i % 2 == 0 then ImGui.SameLine() end
+
+		if ImGui.Button(textformat.tbLabel, 100) then
+			if selected_prop ~= nil or OR_selected > 0 then
+				New_Name = New_Name .. textformat.tStyle
+			else
+				notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
+			end
+		end if ImGui.IsItemHovered() then ImGui.SetTooltip(textformat.tStyle) end
+	end
+end
+
+local function TextFormatting_Colors()
+	ImGui.Text("Colors")
+
+	for i, textcolor in ipairs(ReN_Color) do
+		if (i - 1) % 4 ~= 0 then ImGui.SameLine() end
+
+		if ImGui.ColorButton(textcolor.bName, textcolor.bCol, 64) then
+			if selected_prop ~= nil or OR_selected > 0 then
+				New_Name = New_Name .. textcolor.tColf
+			else
+				notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
+			end
+		end if ImGui.IsItemHovered() then ImGui.SetTooltip(textcolor.bTip..": "..textcolor.tColf) end
+	end
+end
+
 local ReN_selectedprop
 -- local New_PropName = "" -- Replaced with original one
 local ReN_Properties = {
@@ -682,6 +747,8 @@ end)
 
 commandmgr.add_bool_command("hiddenlocs", "Hidden Locations", "Teleport to Hidden/Random Locations.", false, nil)
 
+commandmgr.add_bool_command("reqservice", "Request Services", "Request services from anywhere on the map.", false, nil)
+
 local BoxWidth = 0.208
 local BoxHeight = 0.492
 local xPos = 0.8545
@@ -719,6 +786,117 @@ local function ModestMenu(msg, x, y)
 	GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("shared", true)
 end
 
+local ChickenLittle = {
+	Drops = 0,
+	CloudExplosion = false,
+	Shake = 0.5,
+	CargoPlane = false,
+	Distance = 100,
+	Amount = 5,
+	DropTypes = {
+		{ 1, "Planes", Hash = { 1058115860, 621481054, -1214293858, 165154707, -1746576111, -1295027632, -1214505995, -1673356438 } },
+		{ 2, "Asteroids", Hash = -543669801 },
+		{ 3, "Meteorites", Hash = { 160789653, 390860802, 773471646, 899107992 } },
+		{ 4, "Big O Fruit Juice", Hash = 148511758 },
+		{ 5, "Dildo", Hash = -422877666 },
+		{ 6, "Alien Egg", Hash = 1803116220 },
+		{ 7, "Alien Head", Hash = 1487771192 }
+	},
+	DropVelocity = -80.0
+}
+
+local function SkyIsFalling()
+	local Cloud
+	local CloudHandle = 0
+	local CloudType = commandmgr.get_command("kamikazetype"):get_value()
+	local DropHash = ChickenLittle.DropTypes[CloudType]
+
+	CurPlayerCoords()
+	local x = PlaCoords.x + math.random(-ChickenLittle.Distance, ChickenLittle.Distance)
+	local y = PlaCoords.y + math.random(-ChickenLittle.Distance, ChickenLittle.Distance)
+	local z = PlaCoords.z + 50
+
+	if CloudType == 1 then
+		if ChickenLittle.CargoPlane and DropHash.Hash[9] == nil then
+			table.insert(DropHash.Hash, 368211810)
+		elseif not ChickenLittle.CargoPlane and DropHash.Hash[9] ~= nil then
+			table.remove(DropHash.Hash, 9)
+		end
+		Cloud = DropHash.Hash[math.random(#DropHash.Hash)]
+
+		STREAMING.REQUEST_MODEL(Cloud)
+
+		while not STREAMING.HAS_MODEL_LOADED(Cloud) do
+			script.yield(50)
+		end
+
+		if ChickenLittle.Drops < ChickenLittle.Amount then
+			ChickenLittle.Drops = ChickenLittle.Drops + 1
+			CloudHandle = VEHICLE.CREATE_VEHICLE(Cloud, x, y, z, math.random(0.0, 360.0), true, false, false)
+			local CloudRot = ENTITY.GET_ENTITY_ROTATION(CloudHandle, 2)
+			ENTITY.SET_ENTITY_ROTATION(CloudHandle, CloudRot.y - math.random(0.0, 80.0), CloudRot.x, CloudRot.z, 2, true)
+			STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(Cloud)
+		end
+
+	else
+
+		if type(DropHash.Hash) ~= "table" then Cloud = DropHash.Hash else Cloud = DropHash.Hash[math.random(#DropHash.Hash)] end
+
+		STREAMING.REQUEST_MODEL(Cloud)
+
+		while not STREAMING.HAS_MODEL_LOADED(Cloud) do
+			script.yield(50)
+		end
+
+		if ChickenLittle.Drops < ChickenLittle.Amount then
+			ChickenLittle.Drops = ChickenLittle.Drops + 1
+			CloudHandle = OBJECT.CREATE_OBJECT(Cloud, x, y, z, true, true, true)
+			local CloudCoords = Entity(CloudHandle):get_position()
+			script.yield(50)
+			FIRE.ADD_EXPLOSION(CloudCoords.x, CloudCoords.y, CloudCoords.z, 70, 20, true, false, 0, false)
+		end
+
+	end
+
+	while Entity(CloudHandle):is_valid() do
+		if Entity(CloudHandle):get_model() ~= Cloud then return end
+		ENTITY.SET_ENTITY_VELOCITY(CloudHandle, 0.0, 0.0, ChickenLittle.DropVelocity)
+		if not commandmgr.get_command("kamikaze"):get_value() then
+			Entity(CloudHandle):delete()
+			return
+		end
+		if ENTITY.GET_ENTITY_HEIGHT_ABOVE_GROUND(CloudHandle) <= PlaCoords.z + 20 and ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(CloudHandle) then
+			local CloudCoords = Entity(CloudHandle):get_position()
+			if CloudType ~= 1 then
+				if ChickenLittle.CloudExplosion then
+					FIRE.ADD_EXPLOSION(CloudCoords.x, CloudCoords.y, CloudCoords.z, 31, 20, true, false, ChickenLittle.Shake, false)
+				end
+				script.yield(2000)
+				Entity(CloudHandle):delete()
+			else
+				FIRE.ADD_EXPLOSION(CloudCoords.x, CloudCoords.y, CloudCoords.z, 31, 20, true, false, 0.0, false)
+				script.yield(2000)
+				Entity(CloudHandle):delete()
+			end
+			ChickenLittle.Drops = ChickenLittle.Drops - 1
+			return
+		end
+		script.yield(0)
+	end
+end
+
+commandmgr.add_looped_command("kamikaze", "Rain of Chaos", "Creates a Rain Of Choas.", SkyIsFalling, nil, function() ChickenLittle.Drops = 0 end)
+commandmgr.add_list_command("kamikazetype", "Type", "", ChickenLittle.DropTypes, 1, function()
+	if commandmgr.get_command("kamikazetype"):get_value() == 1 then
+		ChickenLittle.Amount = 5
+		ChickenLittle.DropVelocity = -80.0
+	else
+		ChickenLittle.Amount = 20
+		ChickenLittle.DropVelocity = -520.0
+	end
+	ChickenLittle.Drops = 0
+end)
+
 TS_Main:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join a freemode session.") return end
 
 	ImGui.BeginTabBar("MainCatTab")
@@ -730,7 +908,8 @@ TS_Main:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join 
 		elseif windowcheck then
 			if util.time() < nomoretreeplease + 5000 then
 				--ImGui.SetCursorPosX((ImGui.GetWindowWidth() - 300) * 0.5) ImGui.SetCursorPosY(5.0) -- not perfectly centered but I'll leave it here as an example of what not to do
-				CenteredText("Original TinkerScripts by ImagineNothing", true, false)
+				CenteredText("Original TinkerScripts by ImagineNothing", false, false)
+				CenteredText("If you paid for this, you got scammed.", true, false)
 			end
 		end
 
@@ -894,28 +1073,19 @@ TS_Main:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please join 
 			end
 		end
 
-		ImGui.Spacing()ImGui.Spacing() ImGui.SameLine(0, 3.8) if ImGui.TreeNodeEx("Text Formatting  ##"..nomoretreeplease, 8219) then
+		ImGui.Spacing()
+		ImGui.Spacing()
+		ImGui.SameLine(0, 3.8)
+		if ImGui.TreeNodeEx("Text Formatting  ##"..nomoretreeplease, 8219) then
 
-		ImGui.BeginGroup()
+			ImGui.BeginGroup()
+			TextFormatting_Style()
+			ImGui.EndGroup()
 
-		for i, textformat in ipairs(ReN_Style) do
-			if i % 2 == 0 then ImGui.SameLine() end
+			ImGui.SameLine()
 
-			if ImGui.Button(textformat.tbLabel, 100) then
-				if selected_prop ~= nil or OR_selected > 0 then
-					New_Name = New_Name .. textformat.tStyle
-				else
-					notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
-				end
-			end if ImGui.IsItemHovered() then ImGui.SetTooltip(textformat.tStyle) end
-		end
-
-		ImGui.EndGroup()
-
-		ImGui.SameLine()
-
-		ImGui.BeginGroup() -- Table looks much better but this also work
-		ImGui.InputTextMultiline("##Colors & Symbols", [[
+			ImGui.BeginGroup() -- Table looks much better but this also work
+			ImGui.InputTextMultiline("##Colors & Symbols", [[
 Use HTML/Hex if symbols don't work.
 
 R* Logo:    	      &#8721;   |   &#x2211;
@@ -927,19 +1097,7 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 
 		ImGui.Spacing()
 		ImGui.BeginGroup()
-		ImGui.Text("Colors")
-
-		for i, textcolor in ipairs(ReN_Color) do
-			if (i - 1) % 4 ~= 0 then ImGui.SameLine() end
-
-			if ImGui.ColorButton(textcolor.bName, textcolor.bCol, 64) then
-				if selected_prop ~= nil or OR_selected > 0 then
-					New_Name = New_Name .. textcolor.tColf
-				else
-					notify.error("TinkerScripts - Re-Name", "Select something first!", 3000)
-				end
-			end if ImGui.IsItemHovered() then ImGui.SetTooltip(textcolor.bTip..": "..textcolor.tColf) end
-		end
+		TextFormatting_Colors()
 		ImGui.EndGroup()
 		ImGui.Spacing()
 		end
@@ -985,7 +1143,7 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 				end
 			end)
 		end if ImGui.IsItemHovered() then ImGui.SetTooltip("Triggers Nostalgia") end
-		ImGui.PopStyleColor()ImGui.PopStyleColor()ImGui.PopStyleColor()
+		ImGui.PopStyleColor(3)
 
 		commandmgr.get_command("citylights_blackout"):draw()
 		if commandmgr.get_command("citylights_blackout"):get_value() then
@@ -1012,6 +1170,77 @@ Blank Icon:         &#8250;   |   &#x203a;]], 280, 142, ImGuiInputTextFlags.Read
 				end
 				ImGui.EndListBox()
 			end
+		end
+
+		commandmgr.get_command("reqservice"):draw()
+		if commandmgr.get_command("reqservice"):get_value() then
+
+			ImGui.SameLine()
+			RequestServices.ReqSuperVolito = ImGui.Checkbox("SuperVolito Pickup", RequestServices.ReqSuperVolito)
+			if ImGui.IsItemHovered() then ImGui.SetTooltip("Tell the Executive Assistant to send a SuperVolito to your location when selecting \"Helicotper Pickup\".") end
+
+			ImGui.BeginGroup()
+			ImGui.BeginListBox("##reqservice"..nomoretreeplease, 354, 232)
+			for _, Req in ipairs(RequestServices.Serv) do
+				if ImGui.Selectable(Req.ServName) then
+					for _, serv in ipairs(RequestServices.AllowMultiple.Veh) do
+						GlobalSetBit(RequestServices.AllowMultiple.State:at(serv.Offset), 0, serv.Bitset)
+					end
+					ScriptGlobal(2733326 + Req.ServOffset):set_int(1)
+					if Req.ServName == "Ballistic Equipment" and ScriptGlobal(2733326 + 552):get_int() == 1 then
+						ScriptGlobal(2733326 + Req.ServOffset + 1):set_int(1)
+					end
+					if Req.ServName == "Helicopter Pickup" then
+						if RequestServices.ReqSuperVolito then ScriptGlobal(2733326 + 547):set_int(1) else ScriptGlobal(2733326 + 547):set_int(-1) end
+					end
+					script.run_in_callback(function()
+						script.yield(2000)
+						GlobalSetBit(RequestServices.AllowMultiple.State:at(4), 1, 31)
+					end)
+					end if ImGui.IsItemHovered() then ImGui.SetTooltip(Req.ServDesc) end
+				end
+				ImGui.EndListBox()
+			ImGui.EndGroup()
+
+			ImGui.SameLine()
+
+			ImGui.BeginGroup()
+			CustomChild("Teleport to:", "##teltoservchild", 216, 232, 1, function()
+				for _, TelToServ in ipairs(RequestServices.Serv) do
+					if TelToServ.ServBlip ~= nil then
+						local BlipID = HUD.GET_FIRST_BLIP_INFO_ID(TelToServ.ServBlip)
+						if HUD.DOES_BLIP_EXIST(BlipID) then
+							if ImGui.Button(TelToServ.ServName) then
+								local blip_coords = HUD.GET_BLIP_INFO_ID_COORD(BlipID)
+								if TelToServ.ServName == "Helicopter Pickup" then
+									PED.SET_PED_COORDS_KEEP_VEHICLE(PLAYER.PLAYER_PED_ID(), blip_coords.x + 4, blip_coords.y + 4, blip_coords.z)
+								else
+									PED.SET_PED_COORDS_KEEP_VEHICLE(PLAYER.PLAYER_PED_ID(), blip_coords.x + 4, blip_coords.y + 4, blip_coords.z + 1)
+								end
+							end
+						end
+					end
+				end
+			end)
+			ImGui.EndGroup()
+		end
+
+		commandmgr.get_command("kamikaze"):draw()
+		ImGui.SameLine()
+		commandmgr.get_command("kamikazetype"):draw()
+
+		if commandmgr.get_command("kamikaze"):get_value() then
+			if commandmgr.get_command("kamikazetype"):get_value() == 1 then
+				ChickenLittle.CargoPlane = ImGui.Checkbox("Cargo Plane", ChickenLittle.CargoPlane)
+			else
+				ChickenLittle.CloudExplosion = ImGui.Checkbox("Explosive Impact", ChickenLittle.CloudExplosion)
+			end
+
+			if ChickenLittle.CloudExplosion then
+				ImGui.SetNextItemWidth(100) ChickenLittle.Shake = ImGui.SliderFloat("Camera Shake", ChickenLittle.Shake, 0.0, 5.0)
+			end
+			ImGui.PushItemWidth(100) ChickenLittle.Distance = ImGui.InputInt("Spawn Distance", ChickenLittle.Distance)
+			ImGui.PushItemWidth(100) ChickenLittle.Amount = ImGui.InputInt("Spawn Amount", ChickenLittle.Amount)
 		end
 
 		ImGui.EndTabItem()
@@ -1113,7 +1342,6 @@ local function OpenMCT()
 		end
 	end)
 end
-
 
 local BizRe_running = false
 local BizRe_HGonly = false
@@ -1449,8 +1677,7 @@ end
 
  |b      |b   ]].."\27[38;5;27mSalvage Yard Reputation\27[m"..[[
  ]].."Remove heat levels: \27[38;5;208mMoney Fronts Businesses\27[m"..[[
- ]].."\n\27[2;37;3mYOU MUST RESTART YOUR MC BUSINESSES AND RE-ASSIGN YOUR NIGHTCLUB TECHS AFTER RUNNING THE SCRIPT IF *RESTOCK* IS ENABLED.\27[m\n\n")--\27[1;100;37m
-
+ ]].."\n\27[m\n")
 
 	if BizRe_count then Countdown() end
 
@@ -1818,9 +2045,9 @@ TS_Bizteroids:imgui(function() if not IsOnline() then ImGui.TextDisabled("Please
 	end if ImGui.IsItemHovered() then ImGui.SetTooltip("Sets your Salvage Yard popularity to max.") end
 	ImGui.EndGroup()
 
-	ImGui.SetWindowFontScale(0.6)
-	ImGui.TextDisabled("\nYOU MUST RESTART YOUR MC BUSINESSES AND RE-ASSIGN YOUR NIGHTCLUB TECHS IF *RESTOCK* IS ENABLED")
-	ImGui.SetWindowFontScale(1.0)
+	--ImGui.SetWindowFontScale(0.6)
+	--ImGui.TextDisabled("\nYOU MUST RESTART YOUR MC BUSINESSES AND RE-ASSIGN YOUR NIGHTCLUB TECHS IF *RESTOCK* IS ENABLED") -- NOT NEEDED ANYMORE
+	--ImGui.SetWindowFontScale(1.0)
 
 	ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
 	ImGui.Text("Instant-Sell")ImGui.Separator()ImGui.Spacing()
@@ -2788,7 +3015,7 @@ commandmgr.add_bool_command("rainbowveh_setwheels", "Custom Wheels", "Enables Cu
 
 local newtext = 3
 local NewFlicker1, NewFlicker2, NewFlicker3 = 0, 0, 0
-local testcheckbox = false
+local Rainbowveh_BaseSettings = false
 TS_RainbowVeh:imgui(function() -- I was going to rework this part since I don't think it looks too good, but it just works so I probably won't be touching this anytime soon
 
 	color_mode = commandmgr.get_command("rainbowveh_colormode"):get_value()
@@ -2878,9 +3105,9 @@ TS_RainbowVeh:imgui(function() -- I was going to rework this part since I don't 
 
 	ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
 
-	testcheckbox = ImGui.Checkbox("Base Settings", testcheckbox) if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to edit the base variables") end
+	Rainbowveh_BaseSettings = ImGui.Checkbox("Base Settings", Rainbowveh_BaseSettings) if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to edit the base variables") end
 
-	if testcheckbox then
+	if Rainbowveh_BaseSettings then
 		ImGui.SameLine() ImGui.TextDisabled("Please be careful with these.")
 		ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
 		ImGui.PushItemWidth(180)
@@ -3428,8 +3655,12 @@ local MinPayoutContactMiss = {
 	}
 }
 
+local function GetUGC()
+	ScriptGlobal(1845347):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):at(151):get_string()
+end
+
 local UnnaturalSelection = {
-	UGC = { Global = 1845347 + 151, Cayo = "4bpPLwLW7UKal3bHdKhRHw" },
+	UGC = "4bpPLwLW7UKal3bHdKhRHw",
 	Finish = {
 		Classic = { ScriptName = "fm_horde_controler", Base = 11333 },
 		New =  { ScriptName = "fm_survival_controller", Base = 10769, Endless = 560 },
@@ -4199,12 +4430,12 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 					ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 3):set_int(ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 3):get_int() - 19999)
 				end ImGui.SameLine() commandmgr.get_command("survivals_noidlekick"):draw()
 
-				if ScriptGlobal(UnnaturalSelection.UGC.Global):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_string() == UnnaturalSelection.UGC.Cayo and bit.band(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless):get_int(), bit.lshift(1, 4)) == 0 then
+				if GetUGC() == UnnaturalSelection.UGC and bit.band(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless):get_int(), bit.lshift(1, 4)) == 0 then
 					UnnaturalSelection.ChildRes =  UnnaturalSelection.ChildRes + 30
 					if ImGui.Button("Enable Endless Waves Menu") then
 						ScriptLocal(NewSurvival.ScriptName, NewSurvival.Base + 18):set_int(7)
 					end
-				elseif ScriptGlobal(UnnaturalSelection.UGC.Global):at(PLAYER.PLAYER_ID(), PropGlob.ArraySize):get_string() ~= UnnaturalSelection.UGC.Cayo and bit.band(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless):get_int(), bit.lshift(1, 4)) == 0 then
+				elseif GetUGC() ~= UnnaturalSelection.UGC and bit.band(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless):get_int(), bit.lshift(1, 4)) == 0 then
 					UnnaturalSelection.ChildRes =  UnnaturalSelection.ChildRes + 30
 					if ImGui.Button("Enable Endless Waves") then
 						LocalSetBit(ScriptLocal(UnnaturalSelection.Finish.New.ScriptName, UnnaturalSelection.Finish.New.Base + UnnaturalSelection.Finish.New.Endless), 1, 4)
@@ -4520,7 +4751,11 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 
 					ImGui.SameLine()
 					ImGui.BeginGroup()
-					ImGui.NewLine()ImGui.Spacing()ImGui.Spacing()ImGui.Spacing()
+					ImGui.NewLine()
+					ImGui.Spacing()
+					ImGui.Spacing()
+					ImGui.Spacing()
+
 					ImGui.Text("Colors")
 
 					for i, textcolor in ipairs(ReN_Color) do
@@ -4530,6 +4765,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 							Rplus_Config.KD_editor.ArchOrVictim = Rplus_Config.KD_editor.ArchOrVictim .. textcolor.tColf
 						end if ImGui.IsItemHovered() then ImGui.SetTooltip(textcolor.bTip..": "..textcolor.tColf) end
 					end
+
 					ImGui.EndGroup()
 					ImGui.Spacing()
 				end
@@ -4542,6 +4778,24 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 
 				ImGui.PopItemWidth()
 				ImGui.EndChild()
+			end
+
+			ImGui.Spacing()
+			ImGui.SameLine(0, 3.8)
+			if ImGui.TreeNodeEx("Bad Sport  ##"..nomoretreeplease, 8219) then
+				CustomChild("Bad Sport", "##badsportchild", 200, 100, 0, function()
+
+					if ImGui.Button("Become Bad Sport") then
+						stats.set_float("MPPLY_OVERALL_BADSPORT", 50.0)
+					end
+
+					if ImGui.Button("Remove Bad Sport") then
+						stats.set_float("MPPLY_OVERALL_BADSPORT", 0)
+						stats.set_int("MPPLY_BECAME_BADSPORT_NUM", 0)
+						stats.set_int("MPPLY_BADSPORT_MESSAGE", 0)
+						stats.set_bool("MPPLY_CHAR_IS_BADSPORT", false)
+					end
+				end)
 			end
 
 			if ImGui.Button("Max Out All Skills") then
@@ -4862,7 +5116,7 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 				table.insert(ExpTatCombo, string.format("MPX_TATTOO_FM_CURRENT_%d = %d", i, tatCombo))
 			end
 			if Rplus_Config.ComboToFile then
-				FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/HumanCanvas/Exported_TattooCombo.txt", table.concat(ExpTatCombo, "\n"), false)
+				FileMgr.WriteFileContent("TinkerScripts/include/HumanCanvas/Exported_TattooCombo.txt", table.concat(ExpTatCombo, "\n"), false)
 				notify.success("TinkerScripts - Human Canvas", "Success! Tattoos Combo has been exported to: Exported_TattooCombo.txt", 3000)
 			else
 				ImGui.SetClipboardText(table.concat(ExpTatCombo, "\n"))
@@ -4926,10 +5180,10 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 		ImGui.Spacing()
 		ImGui.Text("Face Paints") if ImGui.IsItemHovered() then ImGui.SetTooltip("Allows you to stack face paints.\nSelected face paint will be applied automatically.\nIf any of these don't get applied, buy any of them first.") end ImGui.Separator()ImGui.Spacing()
 		commandmgr.get_command("humcanv_fp1list"):draw() ImGui.SameLine() ImGui.TextDisabled("(?)") if ImGui.IsItemHovered() then ImGui.SetTooltip("Eyes Makeup: Smoky Black - Devastated.\nFace Paints start with \"Kiss My Axe\".") end
-		commandmgr.get_command("humcanv_fp2list"):draw() ImGui.SameLine() ImGui.TextDisabled("(?)") if ImGui.IsItemHovered() then ImGui.SetTooltip("Blusher (Female Only): Full - Eighties.\nFace Paints start with \"Waves Left\".") end
+		commandmgr.get_command("humcanv_fp2list"):draw() ImGui.SameLine() ImGui.TextDisabled("(?)") if ImGui.IsItemHovered() then ImGui.SetTooltip("Blusher: Full - Eighties.\nFace Paints start with \"Waves Left\".") end
 
 		ImGui.SetNextItemWidth(100)
-		Rplus_Config.FacePaint_Opacity, fpchange = ImGui.SliderFloat("Face Paint Opacity##fppaintopacity", Rplus_Config.FacePaint_Opacity, 0.0, 1.0) if ImGui.IsItemHovered() then ImGui.SetTooltip([[Looks cool ¯\_(°-°)_/¯]]) end
+		Rplus_Config.FacePaint_Opacity, fpchange = ImGui.SliderFloat("Face Paint Opacity##fppaintopacity", Rplus_Config.FacePaint_Opacity, 0.0, 1.0)
 		if fpchange then stats.set_float("MPX_HEADBLEND_OVERLAY_MAKEUP_PC", Rplus_Config.FacePaint_Opacity) end
 		ImGui.SetNextItemWidth(100)
 		Rplus_Config.FacePaint_Opacity2, fpchange2 = ImGui.SliderFloat("Makeup Opacity##fppaintopacity2", Rplus_Config.FacePaint_Opacity2, 0.0, 1.0)
@@ -5008,62 +5262,102 @@ TS_RecoveryPlus:imgui(function() if not network.is_session_started() then ImGui.
 end)
 
 local Stngsplus_Config = {
-	CloseBCSonUnload = TS_Settings.CloseBCSonUnload or true,
 	LoadSettings = TS_Settings.LoadSettings or false
 }
-
-local function CloseBCSonUnload()
-	if Stngsplus_Config.CloseBCSonUnload then
-		FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt", "Close", false)
-	end
-	return Stngsplus_Config.CloseBCSonUnload
-end
 
 local function SaveSettings()
 	local commands = {
 		add_command = {
-			{ format = "HGWHrestock",	main = "HGWH_restock" },
-			{ format = "HGWHmaxgoods",	main = "HGWH_maxgoods" },
-			{ format = "HGsetgood",		main = "HG_setgood" },
-			{ format = "HGgoodtype",	main = "HG_goodtype" },
-			{ format = "WHsetgood",		main = "WH_setgood" },
-			{ format = "WHgoodtype",	main = "WH_goodtype" },
-			{ format = "MCresup",		main = "MC_resup" },
-			{ format = "MCrestock",		main = "MC_restock" },
-			{ format = "NCgoods",		main = "NC_goods" },
-			{ format = "NoClipState",	main = "noclip_onscreen" }
+			{ format = "Fastrespawn",				main = "fastrespawn"			  },
+			{ format = "Fastreload",				main = "fastreload"				  },
+			{ format = "Ragdoll",					main = "ragdoll"				  },
+			{ format = "Infcombatroll",				main = "infcombatroll"			  },
+			{ format = "Noidlecam",					main = "noidlecam"				  },
+			{ format = "DuffelBagSave",				main = "DuffelBagSave" 			  },
+			{ format = "Noclip_anim",				main = "noclip_anim" 			  },
+			{ format = "NoClipState",				main = "noclip_onscreen"		  },
+			{ format = "Rapidoxidation",			main = "rapidoxidation" 		  },
+			{ format = "Tinyplayer",				main = "tinyplayer"  			  },
+			{ format = "Hiddenlocs",				main = "hiddenlocs"  			  },
+			{ format = "Reqservice",				main = "reqservice"  			  },
+			{ format = "HGWHrestock",				main = "HGWH_restock" 			  },
+			{ format = "HGWHmaxgoods",				main = "HGWH_maxgoods" 			  },
+			{ format = "HGsetgood",					main = "HG_setgood" 			  },
+			{ format = "HGgoodtype",				main = "HG_goodtype" 			  },
+			{ format = "WHsetgood",					main = "WH_setgood" 			  },
+			{ format = "WHgoodtype",				main = "WH_goodtype" 			  },
+			{ format = "MCresup",					main = "MC_resup" 				  },
+			{ format = "MCrestock",					main = "MC_restock" 			  },
+			{ format = "NCgoods",					main = "NC_goods" 				  },
+			{ format = "Rainbowveh_toggle", 		main = "rainbowveh_toggle"		  },
+			{ format = "Rainbowveh_rainbowsb", 		main = "rainbowveh_rainbowsb"	  },
+			{ format = "Rainbowveh_colormode",		main = "rainbowveh_colormode"	  },
+			{ format = "Rainbowveh_setplates",		main = "rainbowveh_setplates"	  },
+			{ format = "Rainbowveh_setplatestyle",	main = "rainbowveh_setplatestyle" },
+			{ format = "Rainbowveh_plateanimtype",	main = "rainbowveh_plateanimtype" },
+			{ format = "Rainbowveh_xenonl",			main = "rainbowveh_xenonl"		  },
+			{ format = "Rainbowveh_setwheels",		main = "rainbowveh_setwheels"	  },
+			{ format = "Minmissionpayout",			main = "minmissionpayout"		  }
 		},
 		checkbox = {
-			{ format = "NoClipWindowTop",	main = NoClipWindowTop },
-			{ format = "LoadSettings",		main = Stngsplus_Config.LoadSettings },
-			{ format = "CloseBCSonUnload",	main = Stngsplus_Config.CloseBCSonUnload }
+			{ format = "TeleportRadius",			main = jr_radius },
+			{ format = "VehAutoDriveMode",			main = VehAutoDrive.Mode },
+			{ format = "NoClipWindowTop",			main = NoClipWindowTop },
+			{ format = "ReqSuperVolito",			main = RequestServices.ReqSuperVolito },
+			{ format = "RoC_Explode",				main = ChickenLittle.CloudExplosion },
+			{ format = "Rainbowveh_BaseSettings",	main = Rainbowveh_BaseSettings },
+			{ format = "LoadSettings",				main = Stngsplus_Config.LoadSettings }
 		}
 	}
-    FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings = {}\n", false)
+    FileMgr.WriteFileContent("TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings = {}\n", false)
     for _, cmd in ipairs(commands.add_command) do
-		FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings."..cmd.format.." = "..tostring(commandmgr.get_command(cmd.main):get_value()).."\n", true)
+		FileMgr.WriteFileContent("TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings."..cmd.format.." = "..tostring(commandmgr.get_command(cmd.main):get_value()).."\n", true)
 	end
 	for _, check in ipairs(commands.checkbox) do
-		FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings."..check.format.." = "..tostring(check.main).."\n", true)
+		FileMgr.WriteFileContent("TinkerScripts/include/Settings/TS_Settings.lua", "TS_Settings."..check.format.." = "..tostring(check.main).."\n", true)
 	end
 end
 
 local function LoadSavedSettings() -- My brain started melting since last function, i feel like somethings wrong but i dont know what
 	package.loaded["TS_Settings"] = false -- docs
-	require("TS_Settings")
-	Stngsplus_Config.LoadSettings = TS_Settings.LoadSettings
-	Stngsplus_Config.CloseBCSonUnload = TS_Settings.CloseBCSonUnload
-	NoClipWindowTop = TS_Settings.NoClipWindowTop
+	require("include.Settings.TS_Settings")
+	Stngsplus_Config.LoadSettings 	  = TS_Settings.LoadSettings
+	jr_radius						  = TS_Settings.TeleportRadius
+	VehAutoDrive.Mode 			  	  = TS_Settings.VehAutoDriveMode
+	NoClipWindowTop					  = TS_Settings.NoClipWindowTop
+	RequestServices.ReqSuperVolito	  = TS_Settings.ReqSuperVolito
+	ChickenLittle.CloudExplosion	  = TS_Settings.RoC_Explode
+	Rainbowveh_BaseSettings 		  = TS_Settings.Rainbowveh_BaseSettings
+	commandmgr.get_command("fastrespawn"):set_value(TS_Settings.Fastrespawn)
+	commandmgr.get_command("fastreload"):set_value(TS_Settings.Fastreload)
+	commandmgr.get_command("ragdoll"):set_value(TS_Settings.Ragdoll)
+	commandmgr.get_command("infcombatroll"):set_value(TS_Settings.Infcombatroll)
+	commandmgr.get_command("noidlecam"):set_value(TS_Settings.Noidlecam)
+	commandmgr.get_command("DuffelBagSave"):set_value(TS_Settings.DuffelBagSave)
+	commandmgr.get_command("noclip_anim"):set_value(TS_Settings.Noclip_anim)
 	commandmgr.get_command("noclip_onscreen"):set_value(TS_Settings.NoClipState)
+	commandmgr.get_command("rapidoxidation"):set_value(TS_Settings.Rapidoxidation)
+	commandmgr.get_command("tinyplayer"):set_value(TS_Settings.Tinyplayer)
+	commandmgr.get_command("hiddenlocs"):set_value(TS_Settings.Hiddenlocs)
+	commandmgr.get_command("reqservice"):set_value(TS_Settings.Reqservice)
 	commandmgr.get_command("HGWH_restock"):set_value(TS_Settings.HGWHrestock)
 	commandmgr.get_command("HGWH_maxgoods"):set_value(TS_Settings.HGWHmaxgoods)
 	commandmgr.get_command("HG_setgood"):set_value(TS_Settings.HGsetgood)
+	commandmgr.get_command("HG_goodtype"):set_value(TS_Settings.HGgoodtype)
 	commandmgr.get_command("WH_setgood"):set_value(TS_Settings.WHsetgood)
+	commandmgr.get_command("WH_goodtype"):set_value(TS_Settings.WHgoodtype)
 	commandmgr.get_command("MC_resup"):set_value(TS_Settings.MCresup)
 	commandmgr.get_command("MC_restock"):set_value(TS_Settings.MCrestock)
 	commandmgr.get_command("NC_goods"):set_value(TS_Settings.NCgoods)
-	commandmgr.get_command("HG_goodtype"):set_value(TS_Settings.HGgoodtype)
-	commandmgr.get_command("WH_goodtype"):set_value(TS_Settings.WHgoodtype)
+	commandmgr.get_command("rainbowveh_toggle"):set_value(TS_Settings.Rainbowveh_toggle)
+	commandmgr.get_command("rainbowveh_rainbowsb"):set_value(TS_Settings.Rainbowveh_rainbowsb)
+	commandmgr.get_command("rainbowveh_colormode"):set_value(TS_Settings.Rainbowveh_colormode)
+	commandmgr.get_command("rainbowveh_setplates"):set_value(TS_Settings.Rainbowveh_setplates)
+	commandmgr.get_command("rainbowveh_setplatestyle"):set_value(TS_Settings.Rainbowveh_setplatestyle)
+	commandmgr.get_command("rainbowveh_plateanimtype"):set_value(TS_Settings.Rainbowveh_plateanimtype)
+	commandmgr.get_command("rainbowveh_xenonl"):set_value(TS_Settings.Rainbowveh_xenonl)
+	commandmgr.get_command("rainbowveh_setwheels"):set_value(TS_Settings.Rainbowveh_setwheels)
+	commandmgr.get_command("minmissionpayout"):set_value(TS_Settings.Minmissionpayout)
 end
 
 TS_SettingsPlus:imgui(function()
@@ -5084,49 +5378,7 @@ TS_SettingsPlus:imgui(function()
 
 	end ImGui.EndChild()
 
-	if ImGui.BeginChild("##cloudsaveschild", 296, 196, 1) then
-
-		CenteredText("Block Cloud Saves", false, true) ImGui.Spacing()
-
-		ImGui.Text("Cloud Save State: ")
-
-		if TS_PATH_NoCloudSave() == "" then
-			ImGui.SameLine(0, 0) ImGui.TextColored(0, 1, 1, 1, "Ready")
-		elseif TS_PATH_NoCloudSave() == "Disabled" then
-			ImGui.SameLine(0, 0) ImGui.TextColored(1, 0, 0, 1, "OFF")
-		elseif TS_PATH_NoCloudSave() == "Enabled" then
-			ImGui.SameLine(0, 0) ImGui.TextColored(0, 1, 0, 1, "ON")
-		elseif TS_PATH_NoCloudSave() == "Closed" or TS_PATH_NoCloudSave() == "Close" or TS_PATH_NoCloudSave() == "Disable" or TS_PATH_NoCloudSave() == "Enable" then
-			ImGui.SameLine(0, 0) ImGui.TextDisabled("WAITING")
-		end
-
-		ImGui.SameLine()
-		if TS_PATH_NoCloudSave() ~= "" then ImGui.TextDisabled("(?)") end if ImGui.IsItemHovered() then ImGui.SetTooltip("ON: Cloud Saves ENABLED\nOFF: Cloud Saves DISABLED\n\nWAITING: BlockCloudSaves.bat is not running") end
-		ImGui.Spacing()
-
-		if ImGui.Button("Disable Cloud Saves") then
-			FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt", "Disable", false)
-		end
-
-		if ImGui.Button("Enable Cloud Saves") then
-			FileMgr.WriteFileContent(TinkerPath.."/TinkerScripts/include/Settings/BlockCloudSaves/NoSave.txt", "Enable", false)
-		end
-
-		ImGui.Spacing()ImGui.Spacing()
-		if ImGui.Button("Copy Path##blocksaves") then
-			ImGui.SetClipboardText("%AppData%/YimMenuV2/scripts/TinkerScripts/include/Settings/BlockCloudSaves/BlockCloudSaves.bat")
-			notify.success("TinkerScripts - Block Cloud Saves", "Path to BlockCloudSaves.bat has been copied to clipboard!", 3000)
-		end
-
-		Stngsplus_Config.CloseBCSonUnload = ImGui.Checkbox("Close Tool on Menu Unload", Stngsplus_Config.CloseBCSonUnload) if ImGui.IsItemHovered() then ImGui.SetTooltip("Should BlockCloudSaves.bat close itself on menu unload? (Enabled by default)\nThis will remove the firewall rule added by the tool, so you don't have problems joining Online in your next game session.") end
-
-	end ImGui.EndChild()
-
 end)
 
 if Stngsplus_Config.LoadSettings then LoadSavedSettings() end
 log.info(string.format("%s%sTinkerScripts%s", cls, lual, lual_s))
-
-event.register_handler(menu_event.Unload, function()
-	CloseBCSonUnload()
-end)

@@ -22,19 +22,11 @@ RplusTuna_IndependenceDay = {
     { Tunable = -63833725,    tunaVal = true },
     { Tunable = 234593558,    tunaVal = true },
     { Tunable = 322731716,    tunaVal = true },
-    { Tunable = -1615358681,  tunaVal = true },
-    { Tunable = -1334233430,  tunaVal = true },
-    { Tunable = -79967186,    tunaVal = true },
-    { Tunable = 100000162,    tunaVal = true },
-    { Tunable = 1710843568,   tunaVal = true },
-    { Tunable = 275716555,    tunaVal = true },
-    { Tunable = -730368558,   tunaVal = true },
-    { Tunable = -1260001661,  tunaVal = false },
-    { Tunable = 699708936,    tunaVal = true },
-    { Tunable = -539955635,   tunaVal = true },
-    { Tunable = -379232849,   tunaVal = true },
-    { Tunable = 314604683,    tunaVal = true },
-    { Tunable = 548181598,    tunaVal = true }
+    { Tunable = 1299691672,   tunaVal = true },
+    { Tunable = -1484555665,  tunaVal = true },
+    { Tunable = -851344224,   tunaVal = true },
+    { Tunable = -1579554442,  tunaVal = true },
+    { Tunable = -1260001661,  tunaVal = false }
 }
 
 RplusTuna_Halloween = {
